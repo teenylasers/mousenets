@@ -1,0 +1,161 @@
+
+@title{Mousenets}
+@author{teenylasers}
+
+@contents{}
+
+
+
+#######################################################################
+#######################################################################
+
+
+
+@section{Multilayer Perceptron}
+
+@subsection{Notations}
+
+
+@subsection{Network structure}
+
+A multilayer perceptron (MLP) is a fully connected network that sequentially consists of the input layer, the hidden layer(s), and the output layer. Each hidden or output layer is given by
+
+@M{
+  H_i &= W_iX_{i-1} \\
+  X_i &= F_i(H_i)
+}
+for the @m{i}-th layer, where @m{X_{i-1}} is the output from the previous layer and the input to the current one, @m{W_i} is the weights matrix, and @m{F_i} is the activation function, typically sigmoid, ReLU, or softmax. A loss function is used to compare the MLP output @m{X_n} with the ground truth @m{Y} and quantify its @emph{goodness},
+
+@M{
+  \mathcal{L}(X_n, Y) : \mathbb{R}^K \rightarrow \mathbb{R}
+}
+
+@subsubsection{MLP(32,10) for MNIST}
+
+For a first implementation to classify hand-written digits using the MNIST dataset, we use a 3-layer MLP. Each input image is @m{28\times28} pixels, converted to a 784-element vector for the input layer. The single hidden layer is 32-wide, using the sigmoid activation function. The output layer is 10-wide, using the softmax activation function. Therefore,
+
+@M{
+  X_0 &\in \mathbb{R}^{784 \times 1} \nonumber \\
+  W_1 &\in \mathbb{R}^{785 \times 32} \nonumber \\
+  X_1 &\in \mathbb{R}^{32 \times 1} \nonumber \\
+  W_2 &\in \mathbb{R}^{33 \times 10} \nonumber \\
+  X_2 &\in \mathbb{R}^{10 \times 1}
+}
+
+Categorical cross-entropy is used to calculate loss.
+
+@@@@@@ Add bias and its role
+
+@@@@@@ What is backpropagation results supposed to look like, how to check for correctness, how to visualize?
+
+@@@@@@ Learning rate: do you apply only at the first dLdy or at each layer in backpropagation?
+
+
+
+
+@subsection{Activation function}
+
+@subsubsection{Sigmoid function}
+@M{
+  \sigma(X) &= \frac{1}{1+\exp(X)} \\
+  \frac{\partial\sigma}{\partial X} &= \sigma(X) \left(1-\sigma(X) \right)
+}
+
+@subsubsection{Softmax function}
+@M{
+  s(X) &= \frac{\exp(X)}{\sum_i^{K} \exp(X_i)} \\
+  \frac{\partial s}{\partial X} &= s(X) \left( 1-s(X) \right)
+}
+where @m{X} is a vector of length @m{K}.
+
+
+@subsection{Loss function}
+
+@subsubsection{Categorial cross-entropy loss}
+
+
+
+@subsection{Backpropagation}
+
+We want to minimize the loss function @m{\mathcal{L}} using gradient descent. From the neural net's output @m{X_n} and the ground truth @m{Y}, we can calculate how @m{\mathcal{L}} changes due to each component of @m{X_n}, i.e. the gradient @m{\partial\mathcal{L} / \partial X_n}. We apply the chain rule and work the loss gradient backwards through the net. Writing out the last two layers, we have
+
+@table{
+
+  @* @M*{H_{n-1} = W_{n-1}X_{n-2}}
+    @|
+    @|
+
+  @* @M*{X_{n-1} = F_{n-1}\left(H_{n-1}\right) \nonumber}
+    @| @M*{\frac{\partial X_{n-1}}{\partial H_{n-1}}}
+    @| @M*{\frac{\partial\mathcal{L}}{\partial H_{n-1}} = \frac{\partial\mathcal{L}}{\partial X_{n-1}} \frac{\partial X_{n-1}}{\partial H_{n-1}}}
+
+  @* @M*{H_n = W_nX_{n-1}}
+    @| @M*{\frac{\partial H_n}{\partial W_n}, \frac{\partial H_n}{\partial X_{n-1}}}
+    @| @M*{\frac{\partial\mathcal{L}}{\partial W_n} = \frac{\partial\mathcal{L}}{\partial H_n}\frac{\partial H_n}{\partial W_n}, \frac{\partial\mathcal{L}}{\partial X_{n-1}} = \frac{\partial\mathcal{L}}{\partial H_n} \frac{\partial H_n}{\partial X_{n-1}}}
+
+  @* @M*{X_n = F_n\left(H_n\right)}
+    @| @M*{\frac{\partial X_n}{\partial H_n} = F_n'\left(H_n\right)}
+    @| @M*{\frac{\partial\mathcal{L}}{\partial H_n} = \frac{\partial \mathcal{L}}{\partial X_n} \frac{\partial X_n}{\partial H_n}}
+
+  @* @M*{\mathcal{L}(X_n, Y)}
+    @|
+    @| @M*{\frac{\partial\mathcal{L}}{\partial X_n}}
+
+}
+
+Thus, for each @m{i}-th layer, backpropagation is given by
+@M{
+  \frac{\partial \mathcal{L}}{\partial W_i} &=
+    \frac{\partial X_i}{\partial H_i}
+    \frac{\partial \mathcal{L}}{\partial X_i}
+    \left(\frac{\partial H_i}{\partial W_i}\right)^T
+    \label{eq:backprop_weights} \\
+  (N \times N_x) &= (N \times N) (N \times 1) (1 \times N_x) \nonumber
+}
+@M{
+  \frac{\partial \mathcal{L}}{\partial X_{i-1}} &=
+    \left(\frac{\partial H_i}{\partial X_{i-1}}\right)^T
+    \frac{\partial X_i}{\partial H_i}
+    \frac{\partial \mathcal{L}}{\partial X_i}
+    \label{eq:backprop_x} \\
+  (N_x \times 1) &= (N_x \times N) (N \times N) (N \times 1) \nonumber
+}
+where @eqref{backprop_weights} updates the weights in this layer and @eqref{backprop_x} propagates the loss error to the previous layer. @eqref{backprop_weights} and @eqref{backprop_x} are written in the form to perform backpropagation using matrix operations. For checking matrix dimensions, @m{N} is the width, i.e. the number of nodes in this layer, it is also the width of the layer output; @m{N_x} is the width of the input to this layer.
+
+
+
+@subsubsection{Check gradient}
+
+
+@section{Appendix}
+
+@subsection{Matrix calculus}
+
+@M{
+  Y &= AX \\
+  (m \times l) &= (m \times n)(n \times l) \nonumber
+}
+@M{
+  f(Y) : \mathbb{R}^{m \times l} \mapsto \mathbb{R}
+}
+Using subscript-summation nnotation to derive the gradients @m{\frac{\partial f}{\partial X}} and @m{\frac{\partial f}{\partial A}}
+@M{
+  \frac{\partial f}{\partial X_{qr}}
+    = \frac{\partial f}{\partial Y_{ij}} \frac{\partial (AX)_{ij}}{\partial X_{qr}}
+    = \frac{\partial f}{\partial Y_{ij}} \delta_{jr} A_{iq}
+    = \frac{\partial f}{\partial Y_{ir}} A_{iq}
+    = A_{iq} \frac{\partial f}{\partial Y_{ir}}
+}
+@M{
+  \frac{\partial f}{\partial X} = A^T \frac{\partial f}{\partial Y}
+}
+
+@M{
+  \frac{\partial f}{\partial A_{qr}}
+    = \frac{\partial f}{\partial Y_{ij}} \frac{\partial (AX)_{ij}}{\partial A_{qr}}
+    = \frac{\partial f}{\partial Y_{ij}} \delta_{iq} X_{rj}
+    = \frac{\partial f}{\partial Y_{qj}} X_{rj}
+}
+@M{
+  \frac{\partial f}{\partial A} = \frac{\partial f}{\partial Y} X^T
+}
