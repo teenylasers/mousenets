@@ -21,14 +21,23 @@
 A multilayer perceptron (MLP) is a fully connected network that sequentially consists of the input layer, the hidden layer(s), and the output layer. Each hidden or output layer is given by
 
 @M{
-  H_i &= W_iX_{i-1} \\
-  X_i &= F_i(H_i)
+  H^{(i)} &= W^{(i)}X^{(i-1)} \\
+  X^{(i)} &= F^{(i)}(H^{(i)})
 }
-for the @m{i}-th layer, where @m{X_{i-1}} is the output from the previous layer and the input to the current one, @m{W_i} is the weights matrix, and @m{F_i} is the activation function, typically sigmoid, ReLU, or softmax. A loss function is used to compare the MLP output @m{X_n} with the ground truth @m{Y} and quantify its @emph{goodness},
+for the @m{i}-th layer, where @m{X^{(i-1)}} is the output from the previous layer and the input to the current one, @m{W^{(i)}} is the weights matrix, and @m{F^{(i)}} is the activation function, typically sigmoid, ReLU, or softmax. A loss function is used to compare the MLP output @m{X^(n)} with the ground truth @m{Y} and quantify its @emph{goodness},
 
 @M{
-  \mathcal{L}(X_n, Y) : \mathbb{R}^K \rightarrow \mathbb{R}
+  \mathcal{L}(X^{(n)}, Y) : \mathbb{R}^K \rightarrow \mathbb{R}
 }
+
+We use superscripts in parentheses to denote layer number, and subscripts for matrix manipulation using Einstein summation notation.
+
+When we look at a layer on its own, we simplify the notation by ridding of the superscript, and rename the layer output @m{Y},
+@M{
+  H &= WX \\
+  Y &= F(H)
+}
+where @m{Y} is an @m{N}-dimensional vector, @m{X} is an @m{N_x}-dimensional vector, and @m{W} is an @m{(N \times N_x)} matrix.
 
 @subsubsection{MLP(32,10) for MNIST}
 
@@ -81,59 +90,120 @@ We want to minimize the loss function @m{\mathcal{L}} using gradient descent. Fr
 
 @table{
 
-  @* @M*{H_{n-1} = W_{n-1}X_{n-2}}
+  @* @M*{H^{(n-1)} = W^{(n-1)}X^{(n-2)}}
     @|
     @|
 
-  @* @M*{X_{n-1} = F_{n-1}\left(H_{n-1}\right) \nonumber}
-    @| @M*{\frac{\partial X_{n-1}}{\partial H_{n-1}}}
-    @| @M*{\frac{\partial\mathcal{L}}{\partial H_{n-1}} = \frac{\partial\mathcal{L}}{\partial X_{n-1}} \frac{\partial X_{n-1}}{\partial H_{n-1}}}
+  @* @M*{X^{(n-1)} = F^{(n-1)}(H^{(n-1)}) \nonumber}
+    @| @M*{\frac{\partial X^{(n-1)}}{\partial H^{(n-1)}}}
+    @| @M*{\frac{\partial\mathcal{L}}{\partial H^{(n-1)}} = \frac{\partial\mathcal{L}}{\partial X^{(n-1)}} \frac{\partial X^{(n-1)}}{\partial H^{(n-1)}}}
 
-  @* @M*{H_n = W_nX_{n-1}}
-    @| @M*{\frac{\partial H_n}{\partial W_n}, \frac{\partial H_n}{\partial X_{n-1}}}
-    @| @M*{\frac{\partial\mathcal{L}}{\partial W_n} = \frac{\partial\mathcal{L}}{\partial H_n}\frac{\partial H_n}{\partial W_n}, \frac{\partial\mathcal{L}}{\partial X_{n-1}} = \frac{\partial\mathcal{L}}{\partial H_n} \frac{\partial H_n}{\partial X_{n-1}}}
+  @* @M*{H^{(n)} = W^{(n)}X^{(n-1)}}
+    @| @M*{\frac{\partial H^{(n)}}{\partial W^{(n)}}, \frac{\partial H^{(n)}}{\partial X^{(n-1)}}}
+    @| @M*{
+      \frac{\partial\mathcal{L}}{\partial W^{(n)}}
+        = \frac{\partial\mathcal{L}}{\partial H^{(n)}}
+          \frac{\partial H^{(n)}}{\partial W^{(n)}},
+      \frac{\partial\mathcal{L}}{\partial X^{(n-1)}}
+        = \frac{\partial\mathcal{L}}{\partial H^{(n)}}
+	  \frac{\partial H^{(n)}}{\partial X^{(n-1)}}}
 
-  @* @M*{X_n = F_n\left(H_n\right)}
-    @| @M*{\frac{\partial X_n}{\partial H_n} = F_n'\left(H_n\right)}
-    @| @M*{\frac{\partial\mathcal{L}}{\partial H_n} = \frac{\partial \mathcal{L}}{\partial X_n} \frac{\partial X_n}{\partial H_n}}
+  @* @M*{X^{(n)} = F^{(n)}(H^{(n)})}
+    @| @M*{\frac{\partial X^{(n)}}{\partial H^{(n)}} = F'^{(n)}(H^{(n)})}
+    @| @M*{
+      \frac{\partial\mathcal{L}}{\partial H^{(n)}}
+        = \frac{\partial \mathcal{L}}{\partial X^{(n)}}
+	  \frac{\partial X^{(n)}}{\partial H^{(n)}}}
 
-  @* @M*{\mathcal{L}(X_n, Y)}
+  @* @M*{\mathcal{L}(X^{(n)}, Y)}
     @|
-    @| @M*{\frac{\partial\mathcal{L}}{\partial X_n}}
+    @| @M*{\frac{\partial\mathcal{L}}{\partial X^{(n)}}}
 
 }
 
 Thus, for each @m{i}-th layer, backpropagation is given by
 @M{
-  \frac{\partial \mathcal{L}}{\partial W_i} &=
-    \frac{\partial X_i}{\partial H_i}
-    \frac{\partial \mathcal{L}}{\partial X_i}
-    \left(\frac{\partial H_i}{\partial W_i}\right)^T
+  \frac{\partial \mathcal{L}}{\partial W^{(i)}} &=
+    \frac{\partial X^{(i)}}{\partial H^{(i)}}
+    \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+    \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T
     \label{eq:backprop_weights} \\
   (N \times N_x) &= (N \times N) (N \times 1) (1 \times N_x) \nonumber
 }
 @M{
-  \frac{\partial \mathcal{L}}{\partial X_{i-1}} &=
-    \left(\frac{\partial H_i}{\partial X_{i-1}}\right)^T
-    \frac{\partial X_i}{\partial H_i}
-    \frac{\partial \mathcal{L}}{\partial X_i}
+  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}} &=
+    \left(\frac{\partial H^{(i)}}{\partial X^{(i-1)}}\right)^T
+    \frac{\partial X^{(i)}}{\partial H^{(i)}}
+    \frac{\partial \mathcal{L}}{\partial X^{(i)}}
     \label{eq:backprop_x} \\
   (N_x \times 1) &= (N_x \times N) (N \times N) (N \times 1) \nonumber
 }
 where @eqref{backprop_weights} updates the weights in this layer and @eqref{backprop_x} propagates the loss error to the previous layer. @eqref{backprop_weights} and @eqref{backprop_x} are written in the form to perform backpropagation using matrix operations. For checking matrix dimensions, @m{N} is the width, i.e. the number of nodes in this layer, it is also the width of the layer output; @m{N_x} is the width of the input to this layer.
 
 
-
 @subsubsection{Check gradient}
 
+Backpropagation @eqref{backprop_weights} and @eqref{backprop_x} gives us analytically calculated gradient at each layer of the neural network. We can check the correctness of our implementation against numerically calculate gradients, that is, for the @m{i}-th layer, we wish to verify the loss gradient with respect to the layer input @m{\frac{\partial \mathcal{L}}{\partial X^{(i-1)}}} and the weights @m{\frac{\partial \mathcal{L}}{\partial W^{(i)}}}
+
+We can perform gradient check at each layer individually, calculating @m{\frac{\partial \mathcal{L}}{\partial X}} and @m{\frac{\partial \mathcal{L}}{\partial W}} from @m{\frac{\partial \mathcal{L}}{\partial Y}},
+@M{
+  \frac{\partial \mathcal{L}}{\partial X_k}
+    &= \sum^N_j \frac{\partial \mathcal{L}}{\partial Y_j} \frac{\partial Y_j}{\partial X_k} \nonumber \nonumber \\
+    &= \sum^N_j \frac{\partial \mathcal{L}}{\partial Y_j} \frac{Y_j(X_k + \epsilon) - Y_j(X_k - \epsilon)}{2\epsilon}
+}
+
+Alternatively, we can check gradient by tweaking the @m{k}-th element on the @m{i}-th layer in the neural net @m{X^{(i)}_k}, then forward propagate its effect through the network all the way to the loss function @m{\mathcal{L}} to calculate the loss gradient,
+@M{
+  \frac{\partial \mathcal{L}}{\partial X^{(i)}_k}
+    &= \frac{\mathcal{L}(X^{(i)}_k + \epsilon) - \mathcal{L}(X^{(i)}_k - \epsilon)}{2\epsilon}
+}
 
 @section{Appendix}
 
-@subsection{Matrix calculus}
+@subsection{Matrix derivatives}
+
+@subsubsection{Matrix-vector multiplication}
 
 @M{
-  Y &= AX \\
-  (m \times l) &= (m \times n)(n \times l) \nonumber
+  y_{n \times 1} = A_{n \times m}x_{m \times 1} \\
+  f(y) : \mathbb{R}^{n \times 1} \mapsto \mathbb{R}
+}
+@M{
+  \frac{\partial f}{\partial x_j}
+    = \frac{\partial f}{\partial y_i} \frac{\partial y_i}{\partial x_j}
+    = A_{ji} \frac{\partial f}{\partial y_i}
+}
+@M{
+  \frac{\partial f}{\partial x} &= A^T \frac{\partial f}{\partial y} \\
+  (m \times 1) &= (m \times n)(n \times 1) \nonumber
+}
+
+@subsubsection{Elementwise vector function}
+@M{
+  y_{n \times 1} = \omega(x_{n \times 1}) \\
+  f(y) : \mathbb{R}^{n \times 1} \mapsto \mathbb{R}
+}
+@M{
+  \frac{\partial y_i}{\partial x_j}
+    = \begin{cases}
+      \omega'(x_j), & i=j \\
+      0, & i \neq j
+      \end{cases}
+    = \text{diagonal matrix}
+}
+@M{
+  \frac{\partial f}{\partial x_j}
+    = \frac{\partial y_i}{\partial x_j} \frac{\partial f}{\partial y_i}
+}
+@M{
+  \frac{\partial f}{\partial x} &= \omega'(x) \frac{\partial f}{\partial y} \\
+  (n \times 1) &= (n \times n)(n \times 1) \nonumber
+}
+
+@subsubsection{Matrix-matrix multiplication}
+
+@M{
+  Y_{m \times l} &= A_{m \times n}X_{n \times l}
 }
 @M{
   f(Y) : \mathbb{R}^{m \times l} \mapsto \mathbb{R}
@@ -158,4 +228,10 @@ Using subscript-summation nnotation to derive the gradients @m{\frac{\partial f}
 }
 @M{
   \frac{\partial f}{\partial A} = \frac{\partial f}{\partial Y} X^T
+}
+
+@subsubsection{Elementwise matrix function}
+@M{
+  y_{n \times m} = \omega(x_{n \times m}) \\
+  f(y) : \mathbb{R}^{n \times m} \mapsto \mathbb{R}
 }
