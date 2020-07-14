@@ -23,7 +23,7 @@ class Layer:
   # dLdx = backpropagation from dLdy to dLdx
   # dLdw = backpropagation from dLdy to dLdw
 
-  def __init__(self, n_x, n, activation):
+  def __init__(self, n_x, n, activation, w=None):
 
     assert(isinstance(n, int) and n > 0), 'n should be an integer and >0.'
     assert(isinstance(n_x, int) and n_x > 0), 'n_x should be an integer and >0.'
@@ -41,8 +41,13 @@ class Layer:
       print("Error: activation function %s is not implemented.",
             self.activation)
 
-    # Initialize w as a zero matrix/vector
-    self.w = self._initialize_weights(self.n, self.n_x)
+    # Initialize w if not provided
+    if w is None:
+      self.w = self._initialize_weights(self.n, self.n_x)
+    else:
+      assert(w.shape == (self.n, self.n_x)), \
+        'User input w has the wrong dimensions {}'.format(w.shape)
+      self.w = w
 
 
   def _initialize_weights(self, n, m):
@@ -223,7 +228,7 @@ class MLP:
     self.xn = [0]*self.n_y
 
 
-  def add_layer(self, n, activation):
+  def add_layer(self, n, activation, w=None):
     """Augment the MLP by a new layer of width n."""
     # Get the last layer's output dimension.
     if len(self.layers) == 0:
@@ -233,7 +238,7 @@ class MLP:
     # Automatically extend n by +1 for bias term.
     in_dimension += 1
     # Append the new layer.
-    self.layers.append(Layer(in_dimension, n, activation))
+    self.layers.append(Layer(in_dimension, n, activation, w))
 
 
   def define_loss_function(self, loss_fxn_type):
@@ -276,7 +281,7 @@ class MLP:
       self.get_layer(i).check_gradient()
 
 
-  def check_gradient_from_layer(self, i, y, dLdy):
+  def check_gradient_from_layer(self, i, y):
     """Check the whole MLP's dLdx and dLdw at layer i, i.e. how the MLP's loss
     changes as a function of changes in i-th layer's x and w. Where loss is
     evaluated against the ground truth y."""
@@ -308,9 +313,10 @@ class MLP:
       x_nudge_up = x + x_nudge
       x_nudge_down = x - x_nudge
       for l in self.layers[i::]:
-        xn_nudge_up = l.forward_pass(x_nudge_up, cache=False)
-        xn_nudge_down = l.forward_pass(x_nudge_down, cache=False)
-      g[j] = (self.evaluate_loss(xn_nudge_up, y) - self.evaluate_loss(xn_nudge_down, y)) / 2.0 / kEpsilonNumericalGrad
+        xn_nudge_up = l.forward_pass(x_nudge_up, save=False)
+        xn_nudge_down = l.forward_pass(x_nudge_down, save=False)
+      g[j] = (self.evaluate_loss(xn_nudge_up, y) - self.evaluate_loss(xn_nudge_down, y)) \
+        / 2.0 / kEpsilonNumericalGrad
 
     print('MLP._check_gradient_from_layer_dLdx, numerically calculated gradient =')
     print(g)
@@ -319,17 +325,20 @@ class MLP:
 
 
   def calculate_loss_gradient(self, xn, y):
-    """Calculate dL/dxn, gradient of loss at xn from the previous data sample, using training outcome y."""
+    """Calculate dL/dxn, gradient of loss at xn from the previous data sample,
+    using training outcome y."""
     return self.loss.get_gradient(xn, y)
 
 
   def evaluate_loss(self, xn, y):
-    """Evaluate the loss of a net output xn against the corresponding desired output y."""
+    """Evaluate the loss of a net output xn against the corresponding desired
+    output y."""
     return self.loss.evaluate(xn, y)
 
 
   def get_layer(self, i):
-    """Get the Layer object for the i-th layer. 0-th is the input layer, -1 is the output layer."""
+    """Get the Layer object for the i-th layer. 0-th is the input layer, -1 is
+    the output layer."""
     if i == 0:
       print('No Layer object for the input layer.')
       return None
@@ -340,7 +349,8 @@ class MLP:
 
 
   def get_layer_width(self, i):
-    """Get the width of the i-th layer. 0-th is the input layer, -1 for the output layer."""
+    """Get the width of the i-th layer. 0-th is the input layer, -1 for the
+    output layer."""
     if i == 0:
       return self.n_x0
     else:
@@ -348,7 +358,8 @@ class MLP:
 
 
   def print_weights(self, i):
-    """Print weights for the i-th layer. 0-th is the input layer, -1 for the output layer."""
+    """Print weights for the i-th layer. 0-th is the input layer, -1 for the
+    output layer."""
     if i == 0:
       print('Weights for the input layer: N/A.\n')
     elif i == -1:
@@ -370,9 +381,11 @@ class NetTrainer:
     # eta is the learning rate.
 
     # Check input argument consistency
-    assert(isinstance(nn, MLP)), 'Input neural net nn is not an instance of MLP class.'
+    assert(isinstance(nn, MLP)), \
+      'Input neural net nn is not an instance of MLP class.'
 
-    assert(x_train.shape[0] == y_train.shape[0]), 'x_train and y_train should have the same number of samples.'
+    assert(x_train.shape[0] == y_train.shape[0]), \
+      'x_train and y_train should have the same number of samples.'
 
     input_width = nn.get_layer_width(0)
     assert(x_train.shape[1] == input_width), \
