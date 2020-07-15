@@ -94,7 +94,8 @@ where @m{X} is a vector of length @m{K}.
 
 Cross-entropy loss is
 @M{
-  \mathcal{L}_{CE} = -\sum_i Y_i \log(X^{(n)}_i)
+  \mathcal{L}_{CE} &= -\sum_i Y_i \log(X^{(n)}_i) \\
+  \frac{\partial\mathcal{L}_{CCE}}{\partial X} &=  -\frac{Y}{X}
 }
 
 When @m{Y} is a one-hot encoded vector, categorial cross-entropy loss is
@@ -104,12 +105,9 @@ When @m{Y} is a one-hot encoded vector, categorial cross-entropy loss is
 @M{
   \frac{\partial \mathcal{L}_{CCE}}{\partial X_j}
     = \begin{cases}
-      X_j, & Y_j = 0 \\
-      X_j - 1, & Y_j = 1
+      0, & Y_j = 0 \\
+      -\frac{Y_j}{X_j}, & Y_j = 1
       \end{cases}
-}
-@M{
-  \frac{\partial\mathcal{L}_{CCE}}{\partial X} = X - Y
 }
 
 

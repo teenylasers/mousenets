@@ -232,21 +232,19 @@ tt {
 <p>@@@ Add interpretation of (categorical) cross-entropy loss.</p>
 <p>Cross-entropy loss is </p>
 \[\begin{align}
-  \mathcal{L}_{CE} = -\sum_i Y_i \log(X^{(n)}_i)
+  \mathcal{L}_{CE} &amp;= -\sum_i Y_i \log(X^{(n)}_i) \\
+  \frac{\partial\mathcal{L}_{CCE}}{\partial X} &amp;=  -\frac{Y}{X}
 \end{align}\]
 <p>When \(Y\) is a one-hot encoded vector, categorial cross-entropy loss is </p>
 \[\begin{align}
   \mathcal{L}_{CCE} = -\log(x_p)
 \end{align}\]
-\[\begin{align*}
+\[\begin{align}
   \frac{\partial \mathcal{L}_{CCE}}{\partial X_j}
     = \begin{cases}
-      X_j, &amp; Y_j = 0 \\
-      X_j - 1, &amp; Y_j = 1
+      0, &amp; Y_j = 0 \\
+      -\frac{Y_j}{X_j}, &amp; Y_j = 1
       \end{cases}
-\end{align*}\]
-\[\begin{align}
-  \frac{\partial\mathcal{L}_{CCE}}{\partial X} = X - Y
 \end{align}\]
 <h3 class='section_entry' id='1.5.'>1.5. Backpropagation</h3>
 <p>We want to minimize the loss function \(\mathcal{L}\) using gradient descent. From the neural net's output \(X_n\) and the ground truth \(Y\), we can calculate how \(\mathcal{L}\) changes due to each component of \(X_n\), i.e. the gradient \(\partial\mathcal{L} / \partial X_n\). We apply the chain rule and work the loss gradient backwards through the net. Writing out the last two layers, we have</p>
