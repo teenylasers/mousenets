@@ -1,6 +1,8 @@
 import numpy as np
 
+
 kEpsilonNumericalGrad = 1e-5
+kAllowNumErr = 1e-4
 
 
 class Layer:
@@ -55,15 +57,24 @@ class Layer:
     return np.random.rand(self.n, self.n_x) * 2 - 1
 
 
-  def forward_pass(self, x, save):
+  def forward_pass(self, x, save, w=None):
     """Perform forward pass on this layer using input x, return the output y.
     If save, update self.x, self.h, and self.y. """
 
     assert(isinstance(x, np.ndarray)), 'x should be a numpy array.'
     assert(len(x.shape)==1), 'x should be a vector.'
+    if w is not None:
+      assert(not save), \
+        'When user specifies a weights matrix w, cannot save the results to '\
+        'modify the layer.'
 
-    h = self.normalize_vector(self.w.dot(x))
+    if w is None:
+      h = self.w.dot(x)
+    else:
+      h = w.dot(x)
+
     y = self.f(h)
+
     if save:
       self.x = x
       self.h = h
@@ -85,6 +96,7 @@ class Layer:
 
     # Do backprop
     dydh = self.dfdh(self.h)
+    # np.outer, because numpy does not distinguish between row and column vectors
     dLdw = np.outer(dydh @ dLdy, self.x.T)
     dLdx = self.w.T @ dydh @ dLdy
     if save:
@@ -108,7 +120,8 @@ class Layer:
     """Check input gradient dLdx against numerical calculation."""
     # dLdx = [L(x + eps) - L(x - eps)] / (2*eps)
     # dLdx = \sum_j dLdy_j * [y_j(x + eps) - y_j(x - eps)] / (2*eps)
-    # g is the numerically calculated gradient, for comparison with self.dLdx
+
+    # g = numerical gradient
     g = np.zeros(self.n_x)
     for i in range(self.n_x):
       x_eps = np.zeros(self.n_x)
@@ -117,10 +130,15 @@ class Layer:
               self.forward_pass(self.x - x_eps, save=False))  \
               / 2.0 / kEpsilonNumericalGrad
       g[i] = self.dLdy.dot(dydx)
-    # print(self.dLdx)
-    # print(g)
-    # print(np.max(self.dLdx - g))
-    # print(np.min(self.dLdx - g))
+
+    # dLdx, dLdw = analytical gradient
+    dLdx, dLdw = backprop(self.dLdy, save=False)
+
+    # print output. TODO: check and return bool
+    print(dLdx)
+    print(g)
+    print(np.max(dLdx - g))
+    print(np.min(dLdx - g))
 
 
   def get_input_size(self):
@@ -159,15 +177,21 @@ class Layer:
     """Evaluate the gradient of softmax function at h, where h is a vector."""
     assert(len(h.shape)==1), 'Input arg h should be a vector.'
     f_h = self._f_softmax(h)
-    return np.diag(f_h*(1 - f_h))
+    dfdh = np.diag(f_h*(1 - f_h))
+    off_diag_denom = np.sum(np.exp(h)) * np.sum(np.exp(h))
+    for i in range(dfdh.shape[0]):
+      for j in range(dfdh.shape[1]):
+        if i != j:
+          dfdh[i][j] = -np.exp(h[i]+h[j]) / off_diag_denom
+    return dfdh
 
 
-  def normalize_vector(self, h):
-    """Normalize a vector h for numerical stability"""
-    if abs(np.max(h)) != 0:
-      return h / abs(np.max(h))
-    else:
-      return h
+  # def normalize_vector(self, h):
+  #   """Normalize a vector h for numerical stability"""
+  #   if abs(np.max(h)) != 0:
+  #     return h / abs(np.max(h))
+  #   else:
+  #     return h
 
 
 class LossFunction:
@@ -202,7 +226,7 @@ class LossFunction:
   def _dfdx_cce(self, x, y):
     """Evaluate the gradient of categorical cross-entropy loss at x"""
     # TODO: this implementation is for one-hot category only, add multi-class
-    return x - y
+    return -y / x
 
 
 class MLP:
@@ -249,27 +273,41 @@ class MLP:
   def forward_pass(self, x0):
     """Perform forward pass using input x0, cache intermediate layer states,
     return output xN."""
+    self.xn = self._forward_pass_plus(x0, save=True)
+    return self.xn
+
+
+  def _forward_pass_plus(self, x0, save):
+    """Perform forward pass, with options to update the state of the MLP."""
     x = x0
     for l in self.layers:
-      # Append +1 for the bias term. TODO: keep appending each time is not
-      # efficient.
+      # Append +1 for the bias term.
       x = np.append(x, 1)
       # Run forward pass
-      x = l.forward_pass(x, save=True)
+      x = l.forward_pass(x, save)
 
-    # Save and return the last layer's output
-    self.xn = x
-    return self.xn
+    # Return the last layer's output
+    return x
 
 
   def backprop(self, dLdxn):
     """Backpropagate loss error dLdxn to update the MLP."""
-    dLdx = dLdxn
-    for l in reversed(self.layers):
-      dLdx, dLdw = l.backprop(dLdx, save=True)
+    self._backprop_plus(dLdxn, save=True, to_layer=0)
+
+
+  def _backprop_plus(self, dLdxn, save, to_layer):
+    """Backpropagate loss error dLdxn, with options to update the state of the
+    MLP or up until a certain layer in self.layers, return dLdx, the loss
+    gradient with respect to the input to that layer."""
+    # Append a 1, because the for-loop expects every layer's dLdx to contain a
+    # bias term as the last element.
+    dLdx = np.append(dLdxn, 1)
+    for l in reversed(self.layers[to_layer:]):
       # The last element of dLdx is the bias term, need not be propagated to the
       # previous layer
-      dLdx = dLdx[:-1]
+      dLdx, dLdw = l.backprop(dLdx[:-1], save)
+
+    return dLdx, dLdw
 
 
   def check_gradient_at_layer(self, i):
@@ -281,47 +319,96 @@ class MLP:
       self.get_layer(i).check_gradient()
 
 
-  def check_gradient_from_layer(self, i, y):
+  def check_gradient_from_layer(self, i, y, dLdxn):
     """Check the whole MLP's dLdx and dLdw at layer i, i.e. how the MLP's loss
     changes as a function of changes in i-th layer's x and w. Where loss is
     evaluated against the ground truth y."""
     if i == 0:
       print('Irrelevant to check gradient against the input layer. Exit.')
+      return True
     else:
-      self._check_gradient_from_layer_dLdw(i, y)
-      self._check_gradient_from_layer_dLdx(i, y)
+      return self._check_gradient_from_layer_dLdw(i, y, dLdxn) and \
+        self._check_gradient_from_layer_dLdx(i, y, dLdxn)
 
 
-  def _check_gradient_from_layer_dLdw(self, i, y):
+  def _check_gradient_from_layer_dLdw(self, i, y, dLdxn):
     """Helper function for self.check_gradient_from_layer for dLdw."""
-    w_dims = self.get_layer(i).get_weights().shape
-
-
-  def _check_gradient_from_layer_dLdx(self, i, y):
-    """Helper function for self.check_gradient_from_layer for dLdx."""
+    # Convert i to self.layers index
     if i > 0:
       i = i - 1
+    else:
+      assert False, 'Cannot calculate dLdw for layer number %d.' % i
+    x = self.layers[i].x
+    w = self.layers[i].get_weights()
+    w_dims = w.shape
+
+    # Calculate g, the numerical gradient
+    g = np.zeros(w_dims)
+    for j in range(w_dims[0]):
+      for k in range(w_dims[1]):
+        w_nudge = np.zeros(w_dims)
+        w_nudge[j][k] = kEpsilonNumericalGrad
+        w_nudge_up = w + w_nudge
+        w_nudge_down = w - w_nudge
+        x_nudge_up = self.layers[i].forward_pass(x, save=False, w=w_nudge_up)
+        x_nudge_down = self.layers[i].forward_pass(x, save=False, w=w_nudge_down)
+        for l in self.layers[i+1::]:
+          x_nudge_up = l.forward_pass(x_nudge_up, save=False)
+          x_nudge_down = l.forward_pass(x_nudge_down, save=False)
+        g[j][k] = (self.evaluate_loss(x_nudge_up, y) - self.evaluate_loss(x_nudge_down, y)) \
+          / 2.0 / kEpsilonNumericalGrad
+
+    # Calculate dLdw, the analytical gradient from backprop
+    dLdx, dLdw = self._backprop_plus(dLdxn, save=False, to_layer=i)
+
+    # TODO: ADD CHECK
+    gradient_diff = g - dLdw
+    if np.all(abs(gradient_diff) < kAllowNumErr):
+      return True
+    else:
+      print('MLP._check_gradient_from_layer_dLdw, numerical gradient =')
+      print(g)
+      print('MLP._check_gradient_from_layer_dLdw, backpropagated gradient =')
+      print(dLdw)
+      return False
+
+
+  def _check_gradient_from_layer_dLdx(self, i, y, dLdxn):
+    """Helper function for self.check_gradient_from_layer for dLdx."""
+    # Convert i to self.layers index
+    if i > 0:
+      i = i - 1
+    else:
+      assert False, 'Cannot calculate dLdx for layer number %d.' % i
     x_dim = self.layers[i].get_input_size()
     x = self.layers[i].x
 
-    # g is the numerically calculated gradient
+    # Calculate g, the numerical gradient
     g = np.zeros(x_dim)
-
     for j in range(x_dim):
       x_nudge = np.zeros(x_dim)
       x_nudge[j] = kEpsilonNumericalGrad
       x_nudge_up = x + x_nudge
       x_nudge_down = x - x_nudge
       for l in self.layers[i::]:
-        xn_nudge_up = l.forward_pass(x_nudge_up, save=False)
-        xn_nudge_down = l.forward_pass(x_nudge_down, save=False)
-      g[j] = (self.evaluate_loss(xn_nudge_up, y) - self.evaluate_loss(xn_nudge_down, y)) \
+        x_nudge_up = l.forward_pass(x_nudge_up, save=False)
+        x_nudge_down = l.forward_pass(x_nudge_down, save=False)
+      g[j] = (self.evaluate_loss(x_nudge_up, y) - self.evaluate_loss(x_nudge_down, y)) \
         / 2.0 / kEpsilonNumericalGrad
 
-    print('MLP._check_gradient_from_layer_dLdx, numerically calculated gradient =')
-    print(g)
-    print('MLP._check_gradient_from_layer_dLdx, backpropagated gradient =')
-    print(self.layers[i].dLdx)
+    # Calculate dLdx, the analytical gradient from backprop
+    dLdx, dLdw = self._backprop_plus(dLdxn, save=False, to_layer=i)
+
+    # Compare numerical and analytical gradients
+    gradient_diff = g - dLdx
+    if np.all(abs(gradient_diff) < kAllowNumErr):
+      return True
+    else:
+      print('MLP._check_gradient_from_layer_dLdx, numerical gradient =')
+      print(g)
+      print('MLP._check_gradient_from_layer_dLdx, backpropagated gradient =')
+      print(dLdx)
+      return False
 
 
   def calculate_loss_gradient(self, xn, y):
@@ -401,6 +488,11 @@ class NetTrainer:
     assert(batch_size <= num_samples), 'batch_size [%d] > number of samples in x/y_train [%d].' \
       % (batch_size, num_samples)
 
+    # Normalize input
+    norm_factor = abs(np.max(x_train))
+    if norm_factor != 0:
+      x_train = x_train / norm_factor
+
     # Do batched sgd
     for i in range(epochs):
       cumulative_loss = 0
@@ -420,8 +512,8 @@ class NetTrainer:
       cumulative_loss = cumulative_loss / batch_size
       cumulative_loss_gradient = cumulative_loss_gradient / batch_size
       nn.backprop(cumulative_loss_gradient * eta)
-      nn.check_gradient_at_layer(2)
-      nn.check_gradient_from_layer(2, y_train[s])
+      #nn.check_gradient_at_layer(2)
+      #nn.check_gradient_from_layer(2, y_train[s])
       #nn.print_weights(1)
       #nn.print_weights(2)
       print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))

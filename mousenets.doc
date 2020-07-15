@@ -66,14 +66,22 @@ Categorical cross-entropy is used to calculate loss.
 
 @subsubsection{Sigmoid function}
 @M{
-  \sigma(X) &= \frac{1}{1+\exp(X)} \\
+  \sigma(X) &= \frac{1}{1+e^X} \\
   \frac{\partial\sigma}{\partial X} &= \sigma(X) \left(1-\sigma(X) \right)
 }
 
 @subsubsection{Softmax function}
 @M{
-  s(X) &= \frac{\exp(X)}{\sum_i^{K} \exp(X_i)} \\
-  \frac{\partial s}{\partial X} &= s(X) \left( 1-s(X) \right)
+  s_j(X) &= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \\
+  \frac{\partial s_j}{\partial X_k}
+    &= \begin{cases}
+       \frac{e^{X_k}(\sum_l e^{X_l} - e^{X_k})}{(\sum_l e^{X_l})^2}, & j=k \\
+       \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, & j \neq k
+       \end{cases} \nonumber \\
+    &= \begin{cases}
+       s(X_k)(1-s(X_k)), & j=k \\
+       \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, & j \neq k
+       \end{cases}
 }
 where @m{X} is a vector of length @m{K}.
 
@@ -82,6 +90,27 @@ where @m{X} is a vector of length @m{K}.
 
 @subsubsection{Categorial cross-entropy loss}
 
+@@@@@@ Add interpretation of (categorical) cross-entropy loss.
+
+Cross-entropy loss is
+@M{
+  \mathcal{L}_{CE} = -\sum_i Y_i \log(X^{(n)}_i)
+}
+
+When @m{Y} is a one-hot encoded vector, categorial cross-entropy loss is
+@M{
+  \mathcal{L}_{CCE} = -\log(x_p)
+}
+@M{
+  \frac{\partial \mathcal{L}_{CCE}}{\partial X_j}
+    = \begin{cases}
+      X_j, & Y_j = 0 \\
+      X_j - 1, & Y_j = 1
+      \end{cases}
+}
+@M{
+  \frac{\partial\mathcal{L}_{CCE}}{\partial X} = X - Y
+}
 
 
 @subsection{Backpropagation}
@@ -123,18 +152,24 @@ We want to minimize the loss function @m{\mathcal{L}} using gradient descent. Fr
 
 Thus, for each @m{i}-th layer, backpropagation is given by
 @M{
-  \frac{\partial \mathcal{L}}{\partial W^{(i)}} &=
-    \frac{\partial X^{(i)}}{\partial H^{(i)}}
-    \frac{\partial \mathcal{L}}{\partial X^{(i)}}
-    \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T
+  \frac{\partial \mathcal{L}}{\partial W^{(i)}}
+    &= \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+       \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T \nonumber \\
+    &= \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+       (X^{(i)})^T
     \label{eq:backprop_weights} \\
   (N \times N_x) &= (N \times N) (N \times 1) (1 \times N_x) \nonumber
 }
 @M{
-  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}} &=
-    \left(\frac{\partial H^{(i)}}{\partial X^{(i-1)}}\right)^T
-    \frac{\partial X^{(i)}}{\partial H^{(i)}}
-    \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}}
+    &= \left(\frac{\partial H^{(i)}}{\partial X^{(i-1)}}\right)^T
+       \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}} \nonumber \\
+    &= (W^{(i)})^T
+       \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}}
     \label{eq:backprop_x} \\
   (N_x \times 1) &= (N_x \times N) (N \times N) (N \times 1) \nonumber
 }

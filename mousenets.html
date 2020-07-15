@@ -210,17 +210,44 @@ tt {
 <h3 class='section_entry' id='1.3.'>1.3. Activation function</h3>
 <h4 class='section_entry' id='1.3.1.'>1.3.1. Sigmoid function</h4>
 \[\begin{align}
-  \sigma(X) &amp;= \frac{1}{1+\exp(X)} \\
+  \sigma(X) &amp;= \frac{1}{1+e^X} \\
   \frac{\partial\sigma}{\partial X} &amp;= \sigma(X) \left(1-\sigma(X) \right)
 \end{align}\]
 <h4 class='section_entry' id='1.3.2.'>1.3.2. Softmax function</h4>
 \[\begin{align}
-  s(X) &amp;= \frac{\exp(X)}{\sum_i^{K} \exp(X_i)} \\
-  \frac{\partial s}{\partial X} &amp;= s(X) \left( 1-s(X) \right)
+  s_j(X) &amp;= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \\
+  \frac{\partial s_j}{\partial X_k}
+    &amp;= \begin{cases}
+       \frac{e^{X_k}(\sum_l e^{X_l} - e^{X_k})}{(\sum_l e^{X_l})^2}, &amp; j=k \\
+       \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, &amp; j \neq k
+       \end{cases} \nonumber \\
+    &amp;= \begin{cases}
+       s(X_k)(1-s(X_k)), &amp; j=k \\
+       \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, &amp; j \neq k
+       \end{cases}
 \end{align}\]
 <p>where \(X\) is a vector of length \(K\).</p>
 <h3 class='section_entry' id='1.4.'>1.4. Loss function</h3>
 <h4 class='section_entry' id='1.4.1.'>1.4.1. Categorial cross-entropy loss</h4>
+<p>@@@ Add interpretation of (categorical) cross-entropy loss.</p>
+<p>Cross-entropy loss is </p>
+\[\begin{align}
+  \mathcal{L}_{CE} = -\sum_i Y_i \log(X^{(n)}_i)
+\end{align}\]
+<p>When \(Y\) is a one-hot encoded vector, categorial cross-entropy loss is </p>
+\[\begin{align}
+  \mathcal{L}_{CCE} = -\log(x_p)
+\end{align}\]
+\[\begin{align*}
+  \frac{\partial \mathcal{L}_{CCE}}{\partial X_j}
+    = \begin{cases}
+      X_j, &amp; Y_j = 0 \\
+      X_j - 1, &amp; Y_j = 1
+      \end{cases}
+\end{align*}\]
+\[\begin{align}
+  \frac{\partial\mathcal{L}_{CCE}}{\partial X} = X - Y
+\end{align}\]
 <h3 class='section_entry' id='1.5.'>1.5. Backpropagation</h3>
 <p>We want to minimize the loss function \(\mathcal{L}\) using gradient descent. From the neural net's output \(X_n\) and the ground truth \(Y\), we can calculate how \(\mathcal{L}\) changes due to each component of \(X_n\), i.e. the gradient \(\partial\mathcal{L} / \partial X_n\). We apply the chain rule and work the loss gradient backwards through the net. Writing out the last two layers, we have</p>
 <table class='doc_table'>
@@ -249,18 +276,24 @@ tt {
 </table>
 <p>Thus, for each \(i\)-th layer, backpropagation is given by </p>
 \[\begin{align}
-  \frac{\partial \mathcal{L}}{\partial W^{(i)}} &amp;=
-    \frac{\partial X^{(i)}}{\partial H^{(i)}}
-    \frac{\partial \mathcal{L}}{\partial X^{(i)}}
-    \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T
+  \frac{\partial \mathcal{L}}{\partial W^{(i)}}
+    &amp;= \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+       \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T \nonumber \\
+    &amp;= \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+       (X^{(i)})^T
     \label{eq:backprop_weights} \\
   (N \times N_x) &amp;= (N \times N) (N \times 1) (1 \times N_x) \nonumber
 \end{align}\]
 \[\begin{align}
-  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}} &amp;=
-    \left(\frac{\partial H^{(i)}}{\partial X^{(i-1)}}\right)^T
-    \frac{\partial X^{(i)}}{\partial H^{(i)}}
-    \frac{\partial \mathcal{L}}{\partial X^{(i)}}
+  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}}
+    &amp;= \left(\frac{\partial H^{(i)}}{\partial X^{(i-1)}}\right)^T
+       \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}} \nonumber \\
+    &amp;= (W^{(i)})^T
+       \frac{\partial X^{(i)}}{\partial H^{(i)}}
+       \frac{\partial \mathcal{L}}{\partial X^{(i)}}
     \label{eq:backprop_x} \\
   (N_x \times 1) &amp;= (N_x \times N) (N \times N) (N \times 1) \nonumber
 \end{align}\]
