@@ -102,7 +102,7 @@ class Layer:
     if save:
       self.dLdx = dLdx
       self.dLdw = dLdw
-      self.w = self.w + self.dLdw
+      self.w = self.w - self.dLdw
       self.dLdy = dLdy # Cache dLdy for gradient checking
 
     # Return dLdx for the next layer's backprop
@@ -202,9 +202,9 @@ class LossFunction:
   # self.dfdx = the gradient of the loss function at x
 
   def __init__(self, loss_fxn_type):
-    if loss_fxn_type == "cce":
-      self.f = self._f_cce
-      self.dfdx = self._dfdx_cce
+    if loss_fxn_type == 'cce' or loss_fxn_type == 'ce':
+      self.f = self._f_ce
+      self.dfdx = self._dfdx_ce
     else:
       assert(False), 'loss function %s is not implemented.' % loss_fxn_type
 
@@ -217,15 +217,13 @@ class LossFunction:
     return self.dfdx(x, y)
 
 
-  def _f_cce(self, x, y):
-    """Evaluate the categorical cross-entropy loss for x against the ground truth y."""
-    # TODO: this implementation is for one-hot category only, add multi-class
+  def _f_ce(self, x, y):
+    """Evaluate the cross-entropy loss for x against the ground truth y."""
     return -1*y.dot(np.log(x))
 
 
-  def _dfdx_cce(self, x, y):
-    """Evaluate the gradient of categorical cross-entropy loss at x"""
-    # TODO: this implementation is for one-hot category only, add multi-class
+  def _dfdx_ce(self, x, y):
+    """Evaluate the gradient of cross-entropy loss at x"""
     return -y / x
 
 
@@ -361,7 +359,7 @@ class MLP:
     # Calculate dLdw, the analytical gradient from backprop
     dLdx, dLdw = self._backprop_plus(dLdxn, save=False, to_layer=i)
 
-    # TODO: ADD CHECK
+    # Compare numerical and analytical gradients
     gradient_diff = g - dLdw
     if np.all(abs(gradient_diff) < kAllowNumErr):
       return True
@@ -423,6 +421,26 @@ class MLP:
     return self.loss.evaluate(xn, y)
 
 
+  def classify_one_hot(self, x0, y=None):
+    """For a test input x0, return the neural net's classification. If the
+    expected output y is provided, calculate and return the loss."""
+    xn = self.forward_pass(x0)
+    xn_max = np.max(xn)
+    res = (xn == xn_max).astype(int)
+    #print('xn = ', xn)
+    #print('res = ', res)
+    #print('y = ', y)
+    assert(np.sum(res)==1), \
+      'MLP.classify_one_hot returned an output that is not one hot {}'.format(res)
+    if y is not None:
+      loss = self.evaluate_loss(xn, y)
+    else:
+      loss = None
+    #print('loss = ', loss)
+    #print('\n')
+    return res, loss
+
+
   def get_layer(self, i):
     """Get the Layer object for the i-th layer. 0-th is the input layer, -1 is
     the output layer."""
@@ -464,7 +482,8 @@ class NetTrainer:
   """
 
   def sgd(self, nn, x_train, y_train, epochs, batch_size, eta):
-    """Train a neural net nn using batched stochastic gradient descent."""
+    """Train a neural net nn using batched stochastic gradient descent, return
+    the trained neural net."""
     # eta is the learning rate.
 
     # Check input argument consistency
@@ -493,6 +512,9 @@ class NetTrainer:
     if norm_factor != 0:
       x_train = x_train / norm_factor
 
+    # Initialize loss_history
+    loss_history = []
+
     # Do batched sgd
     for i in range(epochs):
       cumulative_loss = 0
@@ -504,22 +526,66 @@ class NetTrainer:
         res = nn.forward_pass(x_train[s])
         cumulative_loss += nn.evaluate_loss(res, y_train[s])
         cumulative_loss_gradient += nn.calculate_loss_gradient(res, y_train[s])
-        # print(res)
-        # print(y_train[s])
-        # print(nn.calculate_loss_gradient(res, y_train[s]))
+        #if j % 40 == 0:
+        #print(res)
+        #print((res == np.max(res)).astype(int))
+        #print(y_train[s])
+        #print(nn.evaluate_loss(res, y_train[s]))
+        #print(nn.calculate_loss_gradient(res, y_train[s]))
 
       # Train for this epoch
       cumulative_loss = cumulative_loss / batch_size
       cumulative_loss_gradient = cumulative_loss_gradient / batch_size
+      #weights_before = nn.get_layer(1).get_weights()
       nn.backprop(cumulative_loss_gradient * eta)
+      #weights_after = nn.get_layer(1).get_weights()
+      #delta_w = weights_after - weights_before
+      #plt.imshow(delta_w)
+      #plt.show()
+
       #nn.check_gradient_at_layer(2)
       #nn.check_gradient_from_layer(2, y_train[s])
       #nn.print_weights(1)
       #nn.print_weights(2)
-      print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
+      #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
+      loss_history.append(cumulative_loss)
+
+    return nn, loss_history
 
 
   def _select_sample(self, count, num_samples):
     """Helper function to select sample from num_samples."""
-    # Currently round-robin across all num_samples. Can also select at random.
-    return count % num_samples
+    return np.random.randint(low=0, high=num_samples-1)
+
+
+  def validate(self, nn, x_test, y_test):
+    """Evaluate the neural network nn against the test data set."""
+    assert(x_test.shape[0] == y_test.shape[0]), \
+      'x_test.shape = {}, y_test.shape = {}, inconsistent sizes.'\
+      .format(x_test.shape, y_test.shape)
+    num_tests = x_test.shape[0]
+    num_correct = 0
+    cumulative_loss = 0
+
+    # Check test samples
+    for i in range(num_tests):
+      res, loss = nn.classify_one_hot(x_test[i], y_test[i])
+      cumulative_loss += loss
+      if self._compare_results(res, y_test[i]):
+        num_correct += 1
+
+    # Compile total stats
+    cumulative_loss = cumulative_loss / num_tests
+    accuracy = num_correct * 1.0 / num_tests
+    return accuracy, cumulative_loss
+
+
+  def _compare_results(self, y0, y1):
+    """Helper function to compare 2 results, ignoring any formatting or data
+    type differences"""
+    # Currently only implemented for one-hot encoded classification output.
+    # Augment as needed.
+    y0 = y0.astype(int)
+    y1 = y1.astype(int)
+    return np.sum(y0)==np.sum(y1) and np.sum(y0) == 1 and \
+      np.where(y0==1) == np.where(y1==1)
