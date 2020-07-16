@@ -61,14 +61,14 @@ class Layer:
 
 
   def reset_cache(self):
-    """Clear cached states. self.x, h, dLdx, dLdw, and y."""
+    """Clear cached states. self.x, h, y, dLdw, and dLdy"""
     self.x = None
     self.h = None
     self.y = None
-    self.dLdx = None
     # For batch training, we accumulate dLdw from each sample and update w at
     # the end of the batch.
-    self.dLdw = []
+    self.dLdw = np.zeros((self.n, self.nx))
+    self.dLdy = None
 
 
   def forward_pass(self, x, save, w=None):
@@ -118,21 +118,16 @@ class Layer:
     dLdx = self.w.T @ dydh @ dLdy
     if save:
       self.dLdx = dLdx
-      self.dLdw.append(dLdw)
+      self.dLdw = self.dLdw + dLdw
       self.dLdy = dLdy # Cache dLdy for gradient checking
 
     # Return dLdx for the next layer's backprop
     return dLdx, dLdw
 
 
-  def update_weights(self, dLdw):
-    """Given a 3D matrix dLdw, update self.w. Matrix dLdw matrix size is
-    (self.n * self.nx * batch_size)"""
-    # Average across dLdw from multiple samples.
-    batch_size = len(dLdw) * 1.0
-    dw = sum(np.array(dLdw)) / batch_size
-    # Adjust self.w
-    self.w = self.w - dw
+  def update_weights(self, dLdw, batch_size):
+    """Given a dLdw and the batch_size that accumulated it, update self.w."""
+    self.w = self.w - self.dLdw / batch_size
 
 
   def check_gradient(self):
@@ -336,10 +331,10 @@ class MLP:
     return dLdx, dLdw
 
 
-  def update_weights(self):
+  def update_weights(self, batch_size):
     """Update the weights matrix in every layer."""
     for l in self.layers:
-      l.update_weights(l.dLdw)
+      l.update_weights(l.dLdw, batch_size)
 
 
   def check_gradient_at_layer(self, i):
@@ -564,7 +559,7 @@ class NetTrainer:
 
       # Train for this epoch
       cumulative_loss = cumulative_loss / batch_size
-      nn.update_weights()
+      nn.update_weights(batch_size)
       #weights_before = nn.get_layer(1).get_weights()
       #weights_after = nn.get_layer(1).get_weights()
       #delta_w = weights_after - weights_before

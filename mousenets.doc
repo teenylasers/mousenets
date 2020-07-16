@@ -57,35 +57,37 @@ Categorical cross-entropy is used to calculate loss.
 
 @@@@@@ What is backpropagation results supposed to look like, how to check for correctness, how to visualize?
 
-@@@@@@ Learning rate: do you apply only at the first dLdy or at each layer in backpropagation?
+@@@@@@ Learning rate: do you apply only at the first dLdy or at each layer in backpropagation? learning rate schedule?
 
+@@@@@@ Normalization: currently normalize weights and input data only.
 
+@@@@@@ Regularization
 
 
 @subsection{Activation function}
 
 @subsubsection{Sigmoid function}
 @M{
-  \sigma(X) &= \frac{1}{1+e^X} \label{eq:sigmoid} \\
+  \sigma(H) &= \frac{1}{1+e^H} \label{eq:sigmoid} \\
 
-  \frac{\partial\sigma}{\partial X} &= \sigma(X) \left(1-\sigma(X) \right)
+  \frac{\partial\sigma}{\partial H} &= \sigma (1-\sigma)
 }
 
 @subsubsection{Softmax function}
 @M{
-  s_j(X) &= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \label{eq:softmax} \\
+  s_j(H) &= \frac{e^{H_j}}{\sum_i^{K} e^{H_i}} \label{eq:softmax} \\
 
-  \frac{\partial s_j}{\partial X_k}
+  \frac{\partial s_j}{\partial H_k}
     &= \begin{cases}
-       \frac{e^{X_k}(\sum_l e^{X_l} - e^{X_k})}{(\sum_l e^{X_l})^2}, & j=k \\
-       \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, & j \neq k
+       \frac{e^{H_k}(\sum_l e^{H_l} - e^{H_k})}{(\sum_l e^{H_l})^2}, & j=k \\
+       \frac{-e^{H_j + H_k}}{(\sum_l e^{H_l})^2}, & j \neq k
        \end{cases} \nonumber \\
     &= \begin{cases}
-       s(X_k)(1-s(X_k)), & j=k \\
-       \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, & j \neq k
-       \end{cases} \label{eq:softmax_grad}
+       s(H_k)(1-s(H_k)), & j=k \\
+       \frac{-e^{H_j + H_k}}{(\sum_l e^{H_l})^2}, & j \neq k
+       \end{cases} \nonumber \\
+    &= \text{Diag}(s) - ss^T \label{eq:softmax_grad}
 }
-where @m{X} is a vector of length @m{K}.
 
 
 @subsection{Loss function}
@@ -207,12 +209,15 @@ Alternatively, we can check gradient by tweaking the @m{k}-th element on the @m{
     &= \frac{\mathcal{L}(X^{(i)}_k + \epsilon) - \mathcal{L}(X^{(i)}_k - \epsilon)}{2\epsilon}
 }
 
-@subsubsection{Batch gradient descent}
+@subsection{Optimization}
 
-@subsection{Normalization}
+@subsubsection{Gradient descent: stochastic and batch}
 
-We initialize
+The loss function is defined as an evaluation over the whole data set. From that point of view, we would only backpropagate loss gradient after the entire data set. However, this proves to be inefficient; we need not look at the entire data set to get a good estimate of the loss gradient and update the weights. The opposite strategy is to use @emph{stochastic gradient descent}, where the weights are updates after each sample. This strategy can be noisy. A middle ground is to use minibatches, where we average over enough samples to smooth out the per-sample noise, yet not so many that the advantage of averaging has diminishing returns.
 
+To implement batch gradient descent, we backpropagate the loss gradient for each sample, calculate and accumulate @m{\frac{\partial \mathcal{L}}{\partial W}}. At the end of each batch, we average @m{\frac{\partial \mathcal{L}}{\partial W}} over the batch size and update the weights.
+
+Alternatively, some implementations cache @m{X^{(i)}} for all samples, and perform backpropagation once over the @m{(N_x \times \text{batch_size})} @m{X^{(i)}} matrices. This requires more memory to save intermediate results and matrix by matrix operations for analytical gradient calculations.
 
 
 @section{Appendix}
