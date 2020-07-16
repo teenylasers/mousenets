@@ -560,7 +560,7 @@ class NetTrainer:
         res = nn.forward_pass(x_train[s])
         cumulative_loss += nn.evaluate_loss(res, y_train[s])
         loss_grad = nn.calculate_loss_gradient(res, y_train[s])
-        nn.backprop(loss_grad * eta)
+        nn.backprop(loss_grad * eta[i])
 
       # Train for this epoch
       cumulative_loss = cumulative_loss / batch_size
