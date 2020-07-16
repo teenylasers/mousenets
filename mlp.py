@@ -25,12 +25,12 @@ class Layer:
   # dLdx = backpropagation from dLdy to dLdx
   # dLdw = backpropagation from dLdy to dLdw
 
-  def __init__(self, n_x, n, activation, w=None):
+  def __init__(self, nx, n, activation, w=None):
 
     assert(isinstance(n, int) and n > 0), 'n should be an integer and >0.'
-    assert(isinstance(n_x, int) and n_x > 0), 'n_x should be an integer and >0.'
+    assert(isinstance(nx, int) and nx > 0), 'nx should be an integer and >0.'
 
-    self.n_x = n_x
+    self.nx = nx
     self.n = n
     self.activation = activation
     if self.activation == 'sigmoid':
@@ -45,21 +45,35 @@ class Layer:
 
     # Initialize w if not provided
     if w is None:
-      self.w = self._initialize_weights(self.n, self.n_x)
+      self.w = self._initialize_weights(self.n, self.nx)
     else:
-      assert(w.shape == (self.n, self.n_x)), \
+      assert(w.shape == (self.n, self.nx)), \
         'User input w has the wrong dimensions {}'.format(w.shape)
       self.w = w
+
+    # Initialize/reset the remaining states of this layer: self.x, h, y, dLdx, dLdw
+    self.reset_cache()
 
 
   def _initialize_weights(self, n, m):
     """Initialize a weights matrix of dimensions (n x m)."""
-    return np.random.rand(self.n, self.n_x) * 2 - 1
+    return np.random.rand(self.n, self.nx) * 2 - 1
+
+
+  def reset_cache(self):
+    """Clear cached states. self.x, h, dLdx, dLdw, and y."""
+    self.x = None
+    self.h = None
+    self.y = None
+    self.dLdx = None
+    # For batch training, we accumulate dLdw from each sample and update w at
+    # the end of the batch.
+    self.dLdw = []
 
 
   def forward_pass(self, x, save, w=None):
     """Perform forward pass on this layer using input x, return the output y.
-    If save, update self.x, self.h, and self.y. """
+    If cache, then append this state to self.x, self.h, and self.y. """
 
     assert(isinstance(x, np.ndarray)), 'x should be a numpy array.'
     assert(len(x.shape)==1), 'x should be a vector.'
@@ -85,28 +99,40 @@ class Layer:
 
 
   def backprop(self, dLdy, save):
-    """Calculate and return (dLdx, dLdw). If save, update w using dLdw, and save
-    self.dLdy."""
+    """Calculate and return (dLdx, dLdw). If save, append this dLdw to
+    self.dLdw, and save self.dLdy."""
     # dLdy = (n * 1)
     # dydh = dfdh = (n * n) diagonal
-    # dhdx = (n * n_x) = w
-    # dhdw = (n_x * 1) = x
+    # dhdx = (n * nx) = w
+    # dhdw = (nx * 1) = x
     # dLdw = dydh * dLdy * dhdw.T
     # dLdx = dhdx.T * dydh * dLdy
 
     # Do backprop
     dydh = self.dfdh(self.h)
-    # np.outer, because numpy does not distinguish between row and column vectors
-    dLdw = np.outer(dydh @ dLdy, self.x.T)
+    if len(self.x.shape) == 1:
+      # numpy does not distinguish between row and column vectors, use np.outer
+      dLdw = np.outer(dydh @ dLdy, self.x.T)
+    else:
+      dLdw = dydh @ dLdy @ self.x.T
     dLdx = self.w.T @ dydh @ dLdy
     if save:
       self.dLdx = dLdx
-      self.dLdw = dLdw
-      self.w = self.w - self.dLdw
+      self.dLdw.append(dLdw)
       self.dLdy = dLdy # Cache dLdy for gradient checking
 
     # Return dLdx for the next layer's backprop
     return dLdx, dLdw
+
+
+  def update_weights(self, dLdw):
+    """Given a 3D matrix dLdw, update self.w. Matrix dLdw matrix size is
+    (self.n * self.nx * batch_size)"""
+    # Average across dLdw from multiple samples.
+    batch_size = len(dLdw) * 1.0
+    dw = sum(np.array(dLdw)) / batch_size
+    # Adjust self.w
+    self.w = self.w - dw
 
 
   def check_gradient(self):
@@ -122,9 +148,9 @@ class Layer:
     # dLdx = \sum_j dLdy_j * [y_j(x + eps) - y_j(x - eps)] / (2*eps)
 
     # g = numerical gradient
-    g = np.zeros(self.n_x)
-    for i in range(self.n_x):
-      x_eps = np.zeros(self.n_x)
+    g = np.zeros(self.nx)
+    for i in range(self.nx):
+      x_eps = np.zeros(self.nx)
       x_eps[i] = kEpsilonNumericalGrad
       dydx = (self.forward_pass(self.x + x_eps, save=False) - \
               self.forward_pass(self.x - x_eps, save=False))  \
@@ -142,7 +168,7 @@ class Layer:
 
 
   def get_input_size(self):
-    return self.n_x
+    return self.nx
 
 
   def get_width(self):
@@ -154,14 +180,12 @@ class Layer:
 
 
   def _f_sigmoid(self, h):
-    """Evaluate the sigmoid function for h, where h is a vector."""
-    assert(len(h.shape)==1), 'Input arg h should be a vector.'
+    """Evaluate the sigmoid function for h, where h is a vector or a matrix."""
     return 1 / (1 + np.exp(-h))
 
 
   def _dfdh_sigmoid(self, h):
     """Evaluate the gradient of sigmoid function at h, where h is a vector."""
-    assert(len(h.shape)==1), 'Input arg h should be a vector.'
     f_h = self._f_sigmoid(h)
     return np.diag((1 - f_h)*f_h)
 
@@ -177,21 +201,9 @@ class Layer:
     """Evaluate the gradient of softmax function at h, where h is a vector."""
     assert(len(h.shape)==1), 'Input arg h should be a vector.'
     f_h = self._f_softmax(h)
-    dfdh = np.diag(f_h*(1 - f_h))
-    off_diag_denom = np.sum(np.exp(h)) * np.sum(np.exp(h))
-    for i in range(dfdh.shape[0]):
-      for j in range(dfdh.shape[1]):
-        if i != j:
-          dfdh[i][j] = -np.exp(h[i]+h[j]) / off_diag_denom
+    dfdh = np.diag(f_h) - np.outer(f_h, f_h)
     return dfdh
 
-
-  # def normalize_vector(self, h):
-  #   """Normalize a vector h for numerical stability"""
-  #   if abs(np.max(h)) != 0:
-  #     return h / abs(np.max(h))
-  #   else:
-  #     return h
 
 
 class LossFunction:
@@ -233,28 +245,34 @@ class MLP:
   """
   # Definitions:
   #
-  # n_x0 = input data dimension
-  # n_y = output and training data dimension
-  # x0 = MLP input, (n_x0 * 1)
-  # xn = MLP output, (n_y * 1). xn is the output of the n-th layer.
+  # nx0 = input data dimension
+  # ny = output and training data dimension
+  # x0 = MLP input, (nx0 * 1)
+  # xn = MLP output, (ny * 1). xn is the output of the n-th layer.
   #      The last layer output as the same dimensions as the training data
-  # y = training data, (n_y * 1).
+  # y = training data, (ny * 1).
   # layers = a list of Layer objects, dynamically expand using add_layer()
   # loss = the loss function, used to evaluate the output xn
 
   def __init__(self, input_dimension, output_dimension):
     self.layers = []
-    self.n_x0 = input_dimension
-    self.n_y = output_dimension
-    self.x0 = [0]*self.n_x0
-    self.xn = [0]*self.n_y
+    self.nx0 = input_dimension
+    self.ny = output_dimension
+    self.x0 = [0]*self.nx0
+    self.xn = [0]*self.ny
+
+
+  def reset_cache(self):
+    """Reset cached temporary states for all layers."""
+    for l in self.layers:
+      l.reset_cache()
 
 
   def add_layer(self, n, activation, w=None):
     """Augment the MLP by a new layer of width n."""
     # Get the last layer's output dimension.
     if len(self.layers) == 0:
-      in_dimension = self.n_x0
+      in_dimension = self.nx0
     else:
       in_dimension = self.layers[-1].get_width()
     # Automatically extend n by +1 for bias term.
@@ -268,9 +286,19 @@ class MLP:
     self.loss = LossFunction(loss_fxn_type)
 
 
+  def normalize_data(self, v):
+    """Normalize the data vector v."""
+    norm_factor = np.abs(np.max(v))
+    if norm_factor != 0:
+      return v * 1.0 / norm_factor
+    else:
+      return v
+
+
   def forward_pass(self, x0):
     """Perform forward pass using input x0, cache intermediate layer states,
     return output xN."""
+    x0 = self.normalize_data(x0)
     self.xn = self._forward_pass_plus(x0, save=True)
     return self.xn
 
@@ -306,6 +334,12 @@ class MLP:
       dLdx, dLdw = l.backprop(dLdx[:-1], save)
 
     return dLdx, dLdw
+
+
+  def update_weights(self):
+    """Update the weights matrix in every layer."""
+    for l in self.layers:
+      l.update_weights(l.dLdw)
 
 
   def check_gradient_at_layer(self, i):
@@ -457,7 +491,7 @@ class MLP:
     """Get the width of the i-th layer. 0-th is the input layer, -1 for the
     output layer."""
     if i == 0:
-      return self.n_x0
+      return self.nx0
     else:
       return self.get_layer(i).get_width()
 
@@ -481,7 +515,7 @@ class NetTrainer:
   Train a neural net.
   """
 
-  def sgd(self, nn, x_train, y_train, epochs, batch_size, eta):
+  def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None):
     """Train a neural net nn using batched stochastic gradient descent, return
     the trained neural net."""
     # eta is the learning rate.
@@ -507,46 +541,36 @@ class NetTrainer:
     assert(batch_size <= num_samples), 'batch_size [%d] > number of samples in x/y_train [%d].' \
       % (batch_size, num_samples)
 
-    # Normalize input
-    norm_factor = abs(np.max(x_train))
-    if norm_factor != 0:
-      x_train = x_train / norm_factor
-
     # Initialize loss_history
     loss_history = []
 
+    # Initialize learning rate
+    eta = self._get_etas(epochs, eta)
+
     # Do batched sgd
     for i in range(epochs):
+      nn.reset_cache()
       cumulative_loss = 0
-      cumulative_loss_gradient = [0]*output_width
+      cumulative_loss_gradient = np.zeros(output_width)
+      loss_grads = np.zeros((batch_size, output_width))
 
       # Evaluate loss and loss gradient for a batch
       for j in range(batch_size):
         s = self._select_sample(j, num_samples)
         res = nn.forward_pass(x_train[s])
         cumulative_loss += nn.evaluate_loss(res, y_train[s])
-        cumulative_loss_gradient += nn.calculate_loss_gradient(res, y_train[s])
-        #if j % 40 == 0:
-        #print(res)
-        #print((res == np.max(res)).astype(int))
-        #print(y_train[s])
-        #print(nn.evaluate_loss(res, y_train[s]))
-        #print(nn.calculate_loss_gradient(res, y_train[s]))
+        loss_grad = nn.calculate_loss_gradient(res, y_train[s])
+        nn.backprop(loss_grad * eta)
 
       # Train for this epoch
       cumulative_loss = cumulative_loss / batch_size
-      cumulative_loss_gradient = cumulative_loss_gradient / batch_size
+      nn.update_weights()
       #weights_before = nn.get_layer(1).get_weights()
-      nn.backprop(cumulative_loss_gradient * eta)
       #weights_after = nn.get_layer(1).get_weights()
       #delta_w = weights_after - weights_before
       #plt.imshow(delta_w)
       #plt.show()
 
-      #nn.check_gradient_at_layer(2)
-      #nn.check_gradient_from_layer(2, y_train[s])
-      #nn.print_weights(1)
-      #nn.print_weights(2)
       #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
       loss_history.append(cumulative_loss)
 
@@ -558,7 +582,17 @@ class NetTrainer:
     return np.random.randint(low=0, high=num_samples-1)
 
 
-  def validate(self, nn, x_test, y_test):
+  def _get_etas(self, epochs, eta):
+    assert(epochs>0), 'num epochs must be >0.'
+    if eta is None:
+      eta_init = 8
+      eta_prelim = [eta_init**(2**-n) for n in range(epochs)]
+      return [it if it > 1 else 1 for it in eta_prelim]
+    else:
+      return [eta]*epochs
+
+
+  def evaluate(self, nn, x_test, y_test):
     """Evaluate the neural network nn against the test data set."""
     assert(x_test.shape[0] == y_test.shape[0]), \
       'x_test.shape = {}, y_test.shape = {}, inconsistent sizes.'\

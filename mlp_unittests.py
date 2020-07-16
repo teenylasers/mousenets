@@ -25,7 +25,7 @@ class MLPTest(unittest.TestCase):
         if (all([it < kAllowNumErr for it in (x1-y)])):
             return True
         else:
-            print('Sigmoid function implementation is incorrect: \n'
+            print('Softmax function implementation is incorrect: \n'
                   'should be {} \ninstead got {}'.format(x1, y))
             return False
 
@@ -40,7 +40,7 @@ class MLPTest(unittest.TestCase):
         w = np.arange(6).reshape(2,3) * 0.1
         mlp.add_layer(n1, 'sigmoid', w)
         mlp.define_loss_function('cce')
-        x0 = np.array([1.5, 2.5]) / 3
+        x0 = mlp.normalize_data(np.array([1.5, 2.5]))
         y = np.array([1, 0])
 
         # Check sigmoid
@@ -67,7 +67,7 @@ class MLPTest(unittest.TestCase):
         w = np.arange(6).reshape(2,3) * 0.1
         mlp.add_layer(n1, 'softmax', w)
         mlp.define_loss_function('cce')
-        x0 = np.array([1.5, 2.5]) / 3
+        x0 = mlp.normalize_data(np.array([1.5, 2.5]))
         y = np.array([1, 0])
 
         # Check sigmoid
