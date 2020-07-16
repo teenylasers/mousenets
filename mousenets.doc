@@ -66,13 +66,15 @@ Categorical cross-entropy is used to calculate loss.
 
 @subsubsection{Sigmoid function}
 @M{
-  \sigma(X) &= \frac{1}{1+e^X} \\
+  \sigma(X) &= \frac{1}{1+e^X} \label{eq:sigmoid} \\
+
   \frac{\partial\sigma}{\partial X} &= \sigma(X) \left(1-\sigma(X) \right)
 }
 
 @subsubsection{Softmax function}
 @M{
-  s_j(X) &= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \\
+  s_j(X) &= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \label{eq:softmax} \\
+
   \frac{\partial s_j}{\partial X_k}
     &= \begin{cases}
        \frac{e^{X_k}(\sum_l e^{X_l} - e^{X_k})}{(\sum_l e^{X_l})^2}, & j=k \\
@@ -81,7 +83,7 @@ Categorical cross-entropy is used to calculate loss.
     &= \begin{cases}
        s(X_k)(1-s(X_k)), & j=k \\
        \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, & j \neq k
-       \end{cases}
+       \end{cases} \label{eq:softmax_grad}
 }
 where @m{X} is a vector of length @m{K}.
 
@@ -90,25 +92,38 @@ where @m{X} is a vector of length @m{K}.
 
 @subsubsection{Categorial cross-entropy loss}
 
-@@@@@@ Add interpretation of (categorical) cross-entropy loss.
+Softmax function is applied to interpret neural network output as the probability that the input classifies to an output class @m{j}, @m{P(Y_j | X)}. The sum of the probabilities across the classes is 1, thus the input must be of one of the output categories. Apply maximum likelihood estimation, we can minimize the negative log-likelihood, which is equivalent to maximizing the probability. Thus the cross-entropy loss function becomes
 
-Cross-entropy loss is
 @M{
-  \mathcal{L}_{CE} &= -\sum_i Y_i \log(X^{(n)}_i) \\
-  \frac{\partial\mathcal{L}_{CCE}}{\partial X} &=  -\frac{Y}{X}
+  \mathcal{L}_{CE} &= -\sum_i Y_i \log(X^{(n)}_i) \label{eq:cross_entropy_loss} \\
+
+  \frac{\partial\mathcal{L}_{CE}}{\partial X} &=  -\frac{Y}{X}
 }
 
 When @m{Y} is a one-hot encoded vector, categorial cross-entropy loss is
 @M{
-  \mathcal{L}_{CCE} = -\log(x_p)
-}
-@M{
+  \mathcal{L}_{CCE} &= -\log(x_p) \\
+
   \frac{\partial \mathcal{L}_{CCE}}{\partial X_j}
-    = \begin{cases}
+    &= \begin{cases}
       0, & Y_j = 0 \\
       -\frac{Y_j}{X_j}, & Y_j = 1
       \end{cases}
 }
+
+When categorical cross-entropy loss is combined with softmax function as the activation function of the last layer, we can combine the loss gradient calculation into a single simplified calculation. We substitute @eqref{softmax} into @eqref{cross_entropy_loss}
+@M{
+  \mathcal{L}_{SCE}(H)
+    &= -\sum_i Y_i \log \frac{e^{H_i}}{\sum_k e^{H_k}} \nonumber \\
+    &= -\sum_i Y_i \log e^{H_i} + \sum_i Y_i \log \sum_k e^{H_k} \nonumber \\
+    &= -\sum_i Y_i H_i + \log \sum_k e^{H_k} \label{eq:loss_sce} \\
+
+  \frac{\partial \mathcal{L}_{SCE}}{\partial H_i}
+    &= -Y_i + \frac{e^{H_i}}{\sum_k e^{H_k}} \nonumber \\
+    &= -Y_i + \text{softmax}(H_i) \label{eq:loss_grad_sce}
+}
+
+@eqref{loss_sce} and @eqref{loss_grad_sce} simplify backpropagation calculations in gradient descent, letting us bypass the somewhat complex @eqref{softmax_grad}.
 
 
 @subsection{Backpropagation}
@@ -156,7 +171,7 @@ Thus, for each @m{i}-th layer, backpropagation is given by
        \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T \nonumber \\
     &= \frac{\partial X^{(i)}}{\partial H^{(i)}}
        \frac{\partial \mathcal{L}}{\partial X^{(i)}}
-       (X^{(i)})^T
+       (X^{(i-1)})^T
     \label{eq:backprop_weights} \\
   (N \times N_x) &= (N \times N) (N \times 1) (1 \times N_x) \nonumber
 }
@@ -172,6 +187,7 @@ Thus, for each @m{i}-th layer, backpropagation is given by
   (N_x \times 1) &= (N_x \times N) (N \times N) (N \times 1) \nonumber
 }
 where @eqref{backprop_weights} updates the weights in this layer and @eqref{backprop_x} propagates the loss error to the previous layer. @eqref{backprop_weights} and @eqref{backprop_x} are written in the form to perform backpropagation using matrix operations. For checking matrix dimensions, @m{N} is the width, i.e. the number of nodes in this layer, it is also the width of the layer output; @m{N_x} is the width of the input to this layer.
+
 
 
 @subsubsection{Check gradient}
@@ -190,6 +206,14 @@ Alternatively, we can check gradient by tweaking the @m{k}-th element on the @m{
   \frac{\partial \mathcal{L}}{\partial X^{(i)}_k}
     &= \frac{\mathcal{L}(X^{(i)}_k + \epsilon) - \mathcal{L}(X^{(i)}_k - \epsilon)}{2\epsilon}
 }
+
+@subsubsection{Batch gradient descent}
+
+@subsection{Normalization}
+
+We initialize
+
+
 
 @section{Appendix}
 
@@ -265,6 +289,16 @@ Using subscript-summation nnotation to derive the gradients @m{\frac{\partial f}
 
 @subsubsection{Elementwise matrix function}
 @M{
-  y_{n \times m} = \omega(x_{n \times m}) \\
-  f(y) : \mathbb{R}^{n \times m} \mapsto \mathbb{R}
+  Y_{n \times m} = \omega(X_{n \times m}) \\
+  f(Y) : \mathbb{R}^{n \times m} \mapsto \mathbb{R}
+}
+@M{
+  \frac{\partial Y_{ij}}{\partial X_{qr}}
+    = \begin{cases}
+      \omega'(X_{qr}), & (i = q) \& (j = r) \\
+      0, & (i \neq q) \| (j \neq r)
+      \end{cases}
+}
+@M{
+  \frac{\partial f}{\partial X_{ij}} = \frac{\partial f}{\partial Y_{ij}} \omega'(X_{ij})
 }

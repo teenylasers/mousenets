@@ -210,12 +210,12 @@ tt {
 <h3 class='section_entry' id='1.3.'>1.3. Activation function</h3>
 <h4 class='section_entry' id='1.3.1.'>1.3.1. Sigmoid function</h4>
 \[\begin{align}
-  \sigma(X) &amp;= \frac{1}{1+e^X} \\
+  \sigma(X) &amp;= \frac{1}{1+e^X} \label{eq:sigmoid} \\
   \frac{\partial\sigma}{\partial X} &amp;= \sigma(X) \left(1-\sigma(X) \right)
 \end{align}\]
 <h4 class='section_entry' id='1.3.2.'>1.3.2. Softmax function</h4>
 \[\begin{align}
-  s_j(X) &amp;= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \\
+  s_j(X) &amp;= \frac{e^{X_j}}{\sum_i^{K} e^{X_i}} \label{eq:softmax} \\
   \frac{\partial s_j}{\partial X_k}
     &amp;= \begin{cases}
        \frac{e^{X_k}(\sum_l e^{X_l} - e^{X_k})}{(\sum_l e^{X_l})^2}, &amp; j=k \\
@@ -224,28 +224,36 @@ tt {
     &amp;= \begin{cases}
        s(X_k)(1-s(X_k)), &amp; j=k \\
        \frac{-e^{X_j + X_k}}{(\sum_l e^{X_l})^2}, &amp; j \neq k
-       \end{cases}
+       \end{cases} \label{eq:softmax_grad}
 \end{align}\]
 <p>where \(X\) is a vector of length \(K\).</p>
 <h3 class='section_entry' id='1.4.'>1.4. Loss function</h3>
 <h4 class='section_entry' id='1.4.1.'>1.4.1. Categorial cross-entropy loss</h4>
-<p>@@@ Add interpretation of (categorical) cross-entropy loss.</p>
-<p>Cross-entropy loss is </p>
+<p>Softmax function is applied to interpret neural network output as the probability that the input classifies to an output class \(j\), \(P(Y_j | X)\). The sum of the probabilities across the classes is 1, thus the input must be of one of the output categories. Apply maximum likelihood estimation, we can minimize the negative log-likelihood, which is equivalent to maximizing the probability. Thus the cross-entropy loss function becomes</p>
 \[\begin{align}
-  \mathcal{L}_{CE} &amp;= -\sum_i Y_i \log(X^{(n)}_i) \\
-  \frac{\partial\mathcal{L}_{CCE}}{\partial X} &amp;=  -\frac{Y}{X}
+  \mathcal{L}_{CE} &amp;= -\sum_i Y_i \log(X^{(n)}_i) \label{eq:cross_entropy_loss} \\
+  \frac{\partial\mathcal{L}_{CE}}{\partial X} &amp;=  -\frac{Y}{X}
 \end{align}\]
 <p>When \(Y\) is a one-hot encoded vector, categorial cross-entropy loss is </p>
 \[\begin{align}
-  \mathcal{L}_{CCE} = -\log(x_p)
-\end{align}\]
-\[\begin{align}
+  \mathcal{L}_{CCE} &amp;= -\log(x_p) \\
   \frac{\partial \mathcal{L}_{CCE}}{\partial X_j}
-    = \begin{cases}
+    &amp;= \begin{cases}
       0, &amp; Y_j = 0 \\
       -\frac{Y_j}{X_j}, &amp; Y_j = 1
       \end{cases}
 \end{align}\]
+<p>When categorical cross-entropy loss is combined with softmax function as the activation function of the last layer, we can combine the loss gradient calculation into a single simplified calculation. We substitute \eqref{eq:softmax} into \eqref{eq:cross_entropy_loss} </p>
+\[\begin{align}
+  \mathcal{L}_{SCE}(H)
+    &amp;= -\sum_i Y_i \log \frac{e^{H_i}}{\sum_k e^{H_k}} \nonumber \\
+    &amp;= -\sum_i Y_i \log e^{H_i} + \sum_i Y_i \log \sum_k e^{H_k} \nonumber \\
+    &amp;= -\sum_i Y_i H_i + \log \sum_k e^{H_k} \label{eq:loss_sce} \\
+  \frac{\partial \mathcal{L}_{SCE}}{\partial H_i}
+    &amp;= -Y_i + \frac{e^{H_i}}{\sum_k e^{H_k}} \nonumber \\
+    &amp;= -Y_i + \text{softmax}(H_i) \label{eq:loss_grad_sce}
+\end{align}\]
+<p>\eqref{eq:loss_sce} and \eqref{eq:loss_grad_sce} simplify backpropagation calculations in gradient descent, letting us bypass the somewhat complex \eqref{eq:softmax_grad}.</p>
 <h3 class='section_entry' id='1.5.'>1.5. Backpropagation</h3>
 <p>We want to minimize the loss function \(\mathcal{L}\) using gradient descent. From the neural net's output \(X_n\) and the ground truth \(Y\), we can calculate how \(\mathcal{L}\) changes due to each component of \(X_n\), i.e. the gradient \(\partial\mathcal{L} / \partial X_n\). We apply the chain rule and work the loss gradient backwards through the net. Writing out the last two layers, we have</p>
 <table class='doc_table'>
@@ -280,7 +288,7 @@ tt {
        \left(\frac{\partial H^{(i)}}{\partial W^{(i)}}\right)^T \nonumber \\
     &amp;= \frac{\partial X^{(i)}}{\partial H^{(i)}}
        \frac{\partial \mathcal{L}}{\partial X^{(i)}}
-       (X^{(i)})^T
+       (X^{(i-1)})^T
     \label{eq:backprop_weights} \\
   (N \times N_x) &amp;= (N \times N) (N \times 1) (1 \times N_x) \nonumber
 \end{align}\]
@@ -309,6 +317,9 @@ tt {
   \frac{\partial \mathcal{L}}{\partial X^{(i)}_k}
     &amp;= \frac{\mathcal{L}(X^{(i)}_k + \epsilon) - \mathcal{L}(X^{(i)}_k - \epsilon)}{2\epsilon}
 \end{align}\]
+<h4 class='section_entry' id='1.5.2.'>1.5.2. Batch gradient descent</h4>
+<h3 class='section_entry' id='1.6.'>1.6. Normalization</h3>
+<p>We initialize</p>
 <h2 class='section_entry' id='2.'><span class='marker'></span>2. Appendix</h2>
 <h3 class='section_entry' id='2.1.'>2.1. Matrix derivatives</h3>
 <h4 class='section_entry' id='2.1.1.'>2.1.1. Matrix-vector multiplication</h4>
@@ -375,8 +386,18 @@ tt {
 \end{align}\]
 <h4 class='section_entry' id='2.1.4.'>2.1.4. Elementwise matrix function</h4>
 \[\begin{align}
-  y_{n \times m} = \omega(x_{n \times m}) \\
-  f(y) : \mathbb{R}^{n \times m} \mapsto \mathbb{R}
+  Y_{n \times m} = \omega(X_{n \times m}) \\
+  f(Y) : \mathbb{R}^{n \times m} \mapsto \mathbb{R}
+\end{align}\]
+\[\begin{align}
+  \frac{\partial Y_{ij}}{\partial X_{qr}}
+    = \begin{cases}
+      \omega'(X_{qr}), &amp; (i = q) \&amp; (j = r) \\
+      0, &amp; (i \neq q) \| (j \neq r)
+      \end{cases}
+\end{align}\]
+\[\begin{align}
+  \frac{\partial f}{\partial X_{ij}} = \frac{\partial f}{\partial Y_{ij}} \omega'(X_{ij})
 \end{align}\]
 
 
