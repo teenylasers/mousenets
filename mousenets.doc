@@ -13,10 +13,23 @@
 
 @section{Multilayer Perceptron}
 
-@subsection{Notations}
+@subsection{Notes to sort and add}
 
+@list{
+@* Add bias and its role
 
-@subsection{Network structure}
+@* What is backpropagation results supposed to look like, how to check for correctness, how to visualize?
+
+@* Learning rate: do you apply only at the first dLdy or at each layer in backpropagation? learning rate schedule?
+
+@* Normalization: currently normalize weights and input data only.
+
+@* Regularization
+
+@* Dropout layers
+}
+
+@subsection{Architecture}
 
 A multilayer perceptron (MLP) is a fully connected network that sequentially consists of the input layer, the hidden layer(s), and the output layer. Each hidden or output layer is given by
 
@@ -39,7 +52,9 @@ When we look at a layer on its own, we simplify the notation by ridding of the s
 }
 where @m{Y} is an @m{N}-dimensional vector, @m{X} is an @m{N_x}-dimensional vector, and @m{W} is an @m{(N \times N_x)} matrix.
 
-@subsubsection{MLP(32,10) for MNIST}
+@subsection{Example implementations}
+
+@subsubsection{@label{mlp32_10} MLP(32,10) for MNIST}
 
 For a first implementation to classify hand-written digits using the MNIST dataset, we use a 3-layer MLP. Each input image is @m{28\times28} pixels, converted to a 784-element vector for the input layer. The single hidden layer is 32-wide, using the sigmoid activation function. The output layer is 10-wide, using the softmax activation function. Therefore,
 
@@ -52,16 +67,6 @@ For a first implementation to classify hand-written digits using the MNIST datas
 }
 
 Categorical cross-entropy is used to calculate loss.
-
-@@@@@@ Add bias and its role
-
-@@@@@@ What is backpropagation results supposed to look like, how to check for correctness, how to visualize?
-
-@@@@@@ Learning rate: do you apply only at the first dLdy or at each layer in backpropagation? learning rate schedule?
-
-@@@@@@ Normalization: currently normalize weights and input data only.
-
-@@@@@@ Regularization
 
 
 @subsection{Activation function}
@@ -220,6 +225,203 @@ To implement batch gradient descent, we backpropagate the loss gradient for each
 Alternatively, some implementations cache @m{X^{(i)}} for all samples, and perform backpropagation once over the @m{(N_x \times \text{batch_size})} @m{X^{(i)}} matrices. This requires more memory to save intermediate results and matrix by matrix operations for analytical gradient calculations.
 
 
+@subsection{Visualization}
+
+@subsubsection{The training process}
+
+@subsubsection{The trained MLP}
+
+@@@@@@ Add visualization to help understand the training process and what the trained MLP is doing on the input data.
+
+
+
+#######################################################################
+#######################################################################
+
+
+
+@section{ConvNet}
+
+@subsection{Architecture}
+
+@subsubsection{Convolutional layer}
+
+For an input with the dimension @m{W^{(i-1)} \times H^{(i-1)} \times C^{(i-1)}}, it is convolved with a kernel of size @m{K \times K \times C^{(i-1)}}. Both the input and the kernelt have the same depth, or number of channels, @m{C^{(i-1)}} The convolutional layer is defined by the following hyperparameters,
+@list{
+  @* @m{C}, the number of filters
+  @* @m{K}, filter kernel size, where @m{K \geq 1}
+  @* @m{S}, stride, displacement between kernel scans
+  @* @m{P}, zero-padding around the edges of the input
+}
+This results in an output of dimensions @m{W^{(i)} \times H^{(i)} \times C^{(i)}}, where
+@M{
+  W^{(i)} &= (W^{(i-1)} - K + 2P)/S + 1 \nonumber \\
+  H^{(i)} &= (H^{(i-1)} - K + 2P)/S + 1 \\
+  C^{(i)} &= C \nonumber
+}
+Each filter has @m{K^2C^{(i-1)}+1} parameters, @m{+1} for the bias. The number of parameters to train in this layer is @m{C^{(i)}(K^2C^{(i-1)}+1)}.
+
+Note that the same @m{K \times K} kernel is shared across the entire input image for that filter layer. During backpropagation, every neuron in the volume will compute the gradient for its kernel weights, they are then averaged to update the single kernel.
+
+@b{Locally-connected layer}
+
+Sometimes it does not make sense to use the same convolutional kernel across the entire image. When different kernel weights are used in different regions of the image, the layer is typically called a @emph{locally-connected layer}.
+
+@subsubsection{Pooling layer}
+
+The pooling layer servers two purposes:
+@numlist{
+  @* mitigate the network's sensitivity to minor displacements in the input picture
+  @* downsamples representation
+}
+It operates over each activation map independently. The pooling operation can be a max or averaging operation with a kernel size @m{K}, with a stride @m{S}.
+
+
+@subsubsection{Network architecture}
+
+ConvNets are stacks of convolutional, activation, pooling, and fully-connected (FC) layers. A traditional architecture lookes like
+@M{
+  ( (\text{Conv} + \text{ReLU}) * N + \text{Pooling} ) * M + ( \text{FC} + \text{ReLU} ) * L + \text{Softmax}
+}
+
+
+@b{Relationship to fully-connected networks}
+
+For any convolutional layer, there is an equivalent fully-connected layer that implements the same forward function. Conversely, any fully-connected layer can be cast into an equivalent convolutional format by simple introducing a kernel that is the same size as the input image. Despite the mathematical equivalence, there are advantages to using convolutional layers:
+
+@numlist{
+
+  @* The ability to express fully-connected layers as a convolutional layer is useful. When the input image increases in size, we can use the same ConvNet to slide across the larger images in a single forward pass, instead of running the MLP over cropped images multiple times to achieve the same result.
+
+  @* When expressing a convolutional layer as a fully-connected layer, the FC weights matrix contains many identical blocks due to weight-sharing of the kernels that concerns only local connectivity, and the large matrix is mostly zero. Thus, the conv layer contain many fewer parameters to train.
+
+  @* Fully-connected architecture ignores the topology of the input. ConvNet gleams features from local structures in the input 2D images, and  ensures some degree of shift, scale, and distortion invariance by its local receptive fields, shared weights, and spatial/temporal subsampling in pooling.
+
+}
+
+@b{Deleting pooling layers}
+
+
+There are suggestions to remove pooling layers and downsample with conv layers using large strides.
+
+@emph{Reference}
+@list{
+  @* J. T. Springenberg, A. Dosovitskiy, T. Brox, M. Riedmiller, @link{https://arxiv.org/abs/1412.6806}{Striving for Simplicity: The All Convolutional Net}, 2015
+
+}
+
+@subsection{Example implementations}
+
+@subsubsection{Rewrite MLP(32,10) for MNIST as a ConvNet}
+
+We rewrite @link{mlp32_10}{MLP(32,10)} as a ConvNet. The resulting digit classification should perform the same. The layers in this ConvNet consist of:
+@numlist{
+  @* Conv: @m{K=28}, @m{S=1}, @m{C=32}, filter depth is 1, @m{28^2 \times 1 \times 32 + 32 = 25120} trainable parameters.
+  @* Activation: both sigmoid and ReLU are implemented.
+  @* Conv: @m{K=1}, @m{S=1}, @m{C=10}, filter depth is 32, @m{1^2 \times 32 \times 10 + 10 = 330} trainable paraemters.
+  @* Softmax and cross-entropy loss.
+}
+
+
+@subsubsection{LeNet-5 for MNIST classification}
+
+We implement LeNet-5 and test it on the MNIST data set. The layers in the network architecture are:
+@numlist{
+  @* Conv: kernel size @m{K=5}, stride @m{S=1}, depth @m{C=6}, resulting in 6 feature maps, @m{5^2 \times 6 + 6 = 156} trainable parameters.
+  @* Subsampling: @m{K=2}, @m{S=2}, @m{C=6}, average-pooling, times coefficient, add bias, pass through the sigmoid function. There are @m{(1+1) \times 6 = 12} trainable parameters, for the coefficient and bias in 6 layers.
+  @* Conv: @m{K=5}, @m{S=1}, @m{C=16}. The first 6 filters take from 3 contiguous subsampled feature maps, the next 6 from 4, the next 3 from 4 discontiguous subsampled feature maps, and the last filter from all 6. There are @m{5^2 \times (3 \times 6 + 4 \times 6 + 4 \times 3 + 6) + 16 = 1516} trainable parameters.
+  @* Subsampling: @m{K=2}, @m{S=2}, @m{C=16}, @m{(1+1)\times 16 = 12} parameters.
+  @* Conv/FC: @m{K=5}, @m{S=1}, @m{C=120}, @m{5^2 \times 16 \times 120 + 120 = 48120} trainable connections.
+  @* FC: 84 nodes, @m{120 \times 84 + 84 = 10164} parameters.
+  @* Output layer: Euclidean Radial Basis Function units, one for each of the 10 classes, with 84 input each:
+    @M{ y_i = \sum_j (x_j - w_{ij})^2 }
+}
+
+@@@@@@ Note that since LeNet-5, the preference for the pooling layer is max-pool. Do the state of the art ConvNets use multiplication coefficient, bias, and activation functions still?
+
+
+@emph{Reference}
+@list{
+  @* Y. LeCun, L. Bottou, Y. Bengio, P, Haffner, @link{http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf}{Gradient-Based Learning Applied to Document Recognition}, 1998
+}
+
+#######################################################################
+#######################################################################
+
+
+
+@section{PointNet}
+
+
+@subsection{Notes to sort and add}
+
+
+
+@subsection{Architecture}
+
+@list{
+
+  @* Max pooling layer: a symmetric function to aggregate information from all of the points.
+
+  @* Local and global information combination structure
+
+  @* Two joint alignment networks to align both input points and point features
+
+}
+
+@subsubsection{Symmetry function for unordered input}
+
+There are three strategies to make a model invariant to input permutation,
+@numlist{
+
+  @* Sort the input into a @emph{canonical order}. This means to sort the input based on features that are intrinsic to the data as a preprocessing step, so that any input order will be pre-sorted according to the same criteria.
+
+  @* Treat the unordered input as a sequence to train an RNN as the symmetrical function, augment the training data by all kinds of permutations
+
+  @* Use a simple symmetric function to aggregate the information from each point, that is, the symmetric function produces an output vector that is invariance to the input vector's internal elements ordering.
+
+}
+
+The symmetric function approach is used in PointNet, as follows
+@M{
+  f({x_1, ..., x_N}) \approx g(h(x_1), ... h(x_N))
+}
+where
+@M*{
+  f : 2^{\mathbb{R}^N} &\mapsto \mathbb{R} \\
+  h : \mathbb{R}^N &\mapsto \mathbb{R}^K \\
+  g : \mathbb{R}^K \times ... \times \mathbb{R}^K &\mapsto \mathbb{R}
+}
+where @m{N} is the number of input points. @m{h} is approximated by a MLP. @m{g} is the symmetric function, implemented as a single variable function plus a max pooling function. The result @m{f = [f_1, ..., f_K]} after max pooling is a global feature of the input set. For classification, we can train an SVM or a MLP classifier on @m{f}. However, point segmentation requires more network structures, addressed in the sections below.
+
+
+@subsubsection{Local and global information aggregation}
+
+Before the final MLP and max pooling to form the global feature, we have the transformed per-point features. Point segmentation requires knowledge of both local and global features. Therefore, the global feature is concatenated onto the local features.
+
+
+@subsubsection{Joint alignment network}
+
+More than set order invariance, semantic labeling of a point cloud needs to be invariant under certain geometric transformations, e.g. rigid body transformations. Again, a solution is to align the input set to a canonical space before feature extraction. PointNet does it by training an affine transformation matrix @emph{T-net}. The same idea is applied to the alignment of feature space as well.
+
+
+@subsection{Example implementations}
+
+@subsubsection{MNIST as a 2D point cloud, classification, no @emph{T-net}}
+
+Following Appendix F in the PointNet paper, we transform the MNIST image data to pixel sets by intensity thresholding for values larger than 128. Each pixel contain the @m{(x,y)} coordinates in the image. The set size is limited to 256. If there are more than 256 pixels after thresholding, randomly subsample to 256 points. If there are fewer than 256 pixels, then randomly repeat points from the set for padding.
+
+@subsubsection{MNIST, segmentation}
+
+For point segmentation, we will attempt to segment which pixels are the numbers and which are the background. With clean data, the segmentation is simply color based. To better test the PointNet implementation, we can add white or gray noise pixels and see how well segmentation performs.
+
+
+
+#######################################################################
+#######################################################################
+
+
+
 @section{Appendix}
 
 @subsection{Matrix derivatives}
@@ -307,3 +509,22 @@ Using subscript-summation nnotation to derive the gradients @m{\frac{\partial f}
 @M{
   \frac{\partial f}{\partial X_{ij}} = \frac{\partial f}{\partial Y_{ij}} \omega'(X_{ij})
 }
+
+@subsection{Convolution}
+
+We start with 1D convolution. @m{f} and @m{g} are both 1D signals. @m{f} has length @m{n}, @m{g} has length @m{m}. The convolution of the two signals is defined as
+@M{
+  (f*g)_i = \sum_j^m g(j) f(i-j+m/2)
+}
+Effectively, we are sliding the kernel @m{g} across @m{f}. At each kernel position, we multiply the overlapping values of the kernel and the image and sum the results.
+
+Convolution is associative, e.g. if we want to convolve @m{f} with kernels @m{g} and @m{h}, then
+@M{
+  f*g*h = f*(g*h)
+}
+When the kernel sizes are much smaller than the input image size, convolving the kernels first reduces the amount of computation.
+
+
+
+#######################################################################
+#######################################################################

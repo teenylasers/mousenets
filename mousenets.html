@@ -176,8 +176,17 @@ tt {
 <h1 class='author'>teenylasers</h1>
 <div class='contents' id='contents'></div>
 <h2 class='section_entry' id='1.'><span class='marker'></span>1. Multilayer Perceptron</h2>
-<h3 class='section_entry' id='1.1.'>1.1. Notations</h3>
-<h3 class='section_entry' id='1.2.'>1.2. Network structure</h3>
+<h3 class='section_entry' id='1.1.'>1.1. Notes to sort and add</h3>
+<ul>
+<li><p>Add bias and its role</p>
+<li><p>What is backpropagation results supposed to look like, how to check for correctness, how to visualize?</p>
+<li><p>Learning rate: do you apply only at the first dLdy or at each layer in backpropagation? learning rate schedule?</p>
+<li><p>Normalization: currently normalize weights and input data only.</p>
+<li><p>Regularization</p>
+<li><p>Dropout layers </p>
+
+</ul>
+<h3 class='section_entry' id='1.2.'>1.2. Architecture</h3>
 <p>A multilayer perceptron (MLP) is a fully connected network that sequentially consists of the input layer, the hidden layer(s), and the output layer. Each hidden or output layer is given by</p>
 \[\begin{align}
   H^{(i)} &amp;= W^{(i)}X^{(i-1)} \\
@@ -194,7 +203,8 @@ tt {
   Y &amp;= F(H)
 \end{align}\]
 <p>where \(Y\) is an \(N\)-dimensional vector, \(X\) is an \(N_x\)-dimensional vector, and \(W\) is an \((N \times N_x)\) matrix.</p>
-<h4 class='section_entry' id='1.2.1.'>1.2.1. MLP(32,10) for MNIST</h4>
+<h3 class='section_entry' id='1.3.'>1.3. Example implementations</h3>
+<h4 class='section_entry' id='mlp32_10'>1.3.1.  MLP(32,10) for MNIST</h4>
 <p>For a first implementation to classify hand-written digits using the MNIST dataset, we use a 3-layer MLP. Each input image is \(28\times28\) pixels, converted to a 784-element vector for the input layer. The single hidden layer is 32-wide, using the sigmoid activation function. The output layer is 10-wide, using the softmax activation function. Therefore,</p>
 \[\begin{align}
   X_0 &amp;\in \mathbb{R}^{784 \times 1} \nonumber \\
@@ -204,18 +214,13 @@ tt {
   X_2 &amp;\in \mathbb{R}^{10 \times 1}
 \end{align}\]
 <p>Categorical cross-entropy is used to calculate loss.</p>
-<p>@@@ Add bias and its role</p>
-<p>@@@ What is backpropagation results supposed to look like, how to check for correctness, how to visualize?</p>
-<p>@@@ Learning rate: do you apply only at the first dLdy or at each layer in backpropagation? learning rate schedule?</p>
-<p>@@@ Normalization: currently normalize weights and input data only.</p>
-<p>@@@ Regularization</p>
-<h3 class='section_entry' id='1.3.'>1.3. Activation function</h3>
-<h4 class='section_entry' id='1.3.1.'>1.3.1. Sigmoid function</h4>
+<h3 class='section_entry' id='1.4.'>1.4. Activation function</h3>
+<h4 class='section_entry' id='1.4.1.'>1.4.1. Sigmoid function</h4>
 \[\begin{align}
   \sigma(H) &amp;= \frac{1}{1+e^H} \label{eq:sigmoid} \\
   \frac{\partial\sigma}{\partial H} &amp;= \sigma (1-\sigma)
 \end{align}\]
-<h4 class='section_entry' id='1.3.2.'>1.3.2. Softmax function</h4>
+<h4 class='section_entry' id='1.4.2.'>1.4.2. Softmax function</h4>
 \[\begin{align}
   s_j(H) &amp;= \frac{e^{H_j}}{\sum_i^{K} e^{H_i}} \label{eq:softmax} \\
   \frac{\partial s_j}{\partial H_k}
@@ -229,8 +234,8 @@ tt {
        \end{cases} \nonumber \\
     &amp;= \text{Diag}(s) - ss^T \label{eq:softmax_grad}
 \end{align}\]
-<h3 class='section_entry' id='1.4.'>1.4. Loss function</h3>
-<h4 class='section_entry' id='1.4.1.'>1.4.1. Categorial cross-entropy loss</h4>
+<h3 class='section_entry' id='1.5.'>1.5. Loss function</h3>
+<h4 class='section_entry' id='1.5.1.'>1.5.1. Categorial cross-entropy loss</h4>
 <p>Softmax function is applied to interpret neural network output as the probability that the input classifies to an output class \(j\), \(P(Y_j | X)\). The sum of the probabilities across the classes is 1, thus the input must be of one of the output categories. Apply maximum likelihood estimation, we can minimize the negative log-likelihood, which is equivalent to maximizing the probability. Thus the cross-entropy loss function becomes</p>
 \[\begin{align}
   \mathcal{L}_{CE} &amp;= -\sum_i Y_i \log(X^{(n)}_i) \label{eq:cross_entropy_loss} \\
@@ -256,7 +261,7 @@ tt {
     &amp;= -Y_i + \text{softmax}(H_i) \label{eq:loss_grad_sce}
 \end{align}\]
 <p>\eqref{eq:loss_sce} and \eqref{eq:loss_grad_sce} simplify backpropagation calculations in gradient descent, letting us bypass the somewhat complex \eqref{eq:softmax_grad}.</p>
-<h3 class='section_entry' id='1.5.'>1.5. Backpropagation</h3>
+<h3 class='section_entry' id='1.6.'>1.6. Backpropagation</h3>
 <p>We want to minimize the loss function \(\mathcal{L}\) using gradient descent. From the neural net's output \(X_n\) and the ground truth \(Y\), we can calculate how \(\mathcal{L}\) changes due to each component of \(X_n\), i.e. the gradient \(\partial\mathcal{L} / \partial X_n\). We apply the chain rule and work the loss gradient backwards through the net. Writing out the last two layers, we have</p>
 <table class='doc_table'>
 <tr><td>\[\begin{align*}H^{(n-1)} = W^{(n-1)}X^{(n-2)}\end{align*}\]
@@ -306,7 +311,7 @@ tt {
   (N_x \times 1) &amp;= (N_x \times N) (N \times N) (N \times 1) \nonumber
 \end{align}\]
 <p>where \eqref{eq:backprop_weights} updates the weights in this layer and \eqref{eq:backprop_x} propagates the loss error to the previous layer. \eqref{eq:backprop_weights} and \eqref{eq:backprop_x} are written in the form to perform backpropagation using matrix operations. For checking matrix dimensions, \(N\) is the width, i.e. the number of nodes in this layer, it is also the width of the layer output; \(N_x\) is the width of the input to this layer.</p>
-<h4 class='section_entry' id='1.5.1.'>1.5.1. Check gradient</h4>
+<h4 class='section_entry' id='1.6.1.'>1.6.1. Check gradient</h4>
 <p>Backpropagation \eqref{eq:backprop_weights} and \eqref{eq:backprop_x} gives us analytically calculated gradient at each layer of the neural network. We can check the correctness of our implementation against numerically calculate gradients, that is, for the \(i\)-th layer, we wish to verify the loss gradient with respect to the layer input \(\frac{\partial \mathcal{L}}{\partial X^{(i-1)}}\) and the weights \(\frac{\partial \mathcal{L}}{\partial W^{(i)}}\)</p>
 <p>We can perform gradient check at each layer individually, calculating \(\frac{\partial \mathcal{L}}{\partial X}\) and \(\frac{\partial \mathcal{L}}{\partial W}\) from \(\frac{\partial \mathcal{L}}{\partial Y}\), </p>
 \[\begin{align}
@@ -319,14 +324,133 @@ tt {
   \frac{\partial \mathcal{L}}{\partial X^{(i)}_k}
     &amp;= \frac{\mathcal{L}(X^{(i)}_k + \epsilon) - \mathcal{L}(X^{(i)}_k - \epsilon)}{2\epsilon}
 \end{align}\]
-<h3 class='section_entry' id='1.6.'>1.6. Optimization</h3>
-<h4 class='section_entry' id='1.6.1.'>1.6.1. Gradient descent: stochastic and batch</h4>
+<h3 class='section_entry' id='1.7.'>1.7. Optimization</h3>
+<h4 class='section_entry' id='1.7.1.'>1.7.1. Gradient descent: stochastic and batch</h4>
 <p>The loss function is defined as an evaluation over the whole data set. From that point of view, we would only backpropagate loss gradient after the entire data set. However, this proves to be inefficient; we need not look at the entire data set to get a good estimate of the loss gradient and update the weights. The opposite strategy is to use <em>stochastic gradient descent</em>, where the weights are updates after each sample. This strategy can be noisy. A middle ground is to use minibatches, where we average over enough samples to smooth out the per-sample noise, yet not so many that the advantage of averaging has diminishing returns.</p>
 <p>To implement batch gradient descent, we backpropagate the loss gradient for each sample, calculate and accumulate \(\frac{\partial \mathcal{L}}{\partial W}\). At the end of each batch, we average \(\frac{\partial \mathcal{L}}{\partial W}\) over the batch size and update the weights.</p>
 <p>Alternatively, some implementations cache \(X^{(i)}\) for all samples, and perform backpropagation once over the \((N_x \times \text{batch_size})\) \(X^{(i)}\) matrices. This requires more memory to save intermediate results and matrix by matrix operations for analytical gradient calculations.</p>
-<h2 class='section_entry' id='2.'><span class='marker'></span>2. Appendix</h2>
-<h3 class='section_entry' id='2.1.'>2.1. Matrix derivatives</h3>
-<h4 class='section_entry' id='2.1.1.'>2.1.1. Matrix-vector multiplication</h4>
+<h3 class='section_entry' id='1.8.'>1.8. Visualization</h3>
+<h4 class='section_entry' id='1.8.1.'>1.8.1. The training process</h4>
+<h4 class='section_entry' id='1.8.2.'>1.8.2. The trained MLP</h4>
+<p>@@@ Add visualization to help understand the training process and what the trained MLP is doing on the input data.</p>
+<h2 class='section_entry' id='2.'><span class='marker'></span>2. ConvNet</h2>
+<h3 class='section_entry' id='2.1.'>2.1. Architecture</h3>
+<h4 class='section_entry' id='2.1.1.'>2.1.1. Convolutional layer</h4>
+<p>For an input with the dimension \(W^{(i-1)} \times H^{(i-1)} \times C^{(i-1)}\), it is convolved with a kernel of size \(K \times K \times C^{(i-1)}\). Both the input and the kernelt have the same depth, or number of channels, \(C^{(i-1)}\) The convolutional layer is defined by the following hyperparameters, </p>
+<ul>
+<li><p>\(C\), the number of filters </p>
+<li><p>\(K\), filter kernel size, where \(K \geq 1\) </p>
+<li><p>\(S\), stride, displacement between kernel scans </p>
+<li><p>\(P\), zero-padding around the edges of the input </p>
+
+</ul>
+<p>This results in an output of dimensions \(W^{(i)} \times H^{(i)} \times C^{(i)}\), where </p>
+\[\begin{align}
+  W^{(i)} &amp;= (W^{(i-1)} - K + 2P)/S + 1 \nonumber \\
+  H^{(i)} &amp;= (H^{(i-1)} - K + 2P)/S + 1 \\
+  C^{(i)} &amp;= C \nonumber
+\end{align}\]
+<p>Each filter has \(K^2C^{(i-1)}+1\) parameters, \(+1\) for the bias. The number of parameters to train in this layer is \(C^{(i)}(K^2C^{(i-1)}+1)\).</p>
+<p>Note that the same \(K \times K\) kernel is shared across the entire input image for that filter layer. During backpropagation, every neuron in the volume will compute the gradient for its kernel weights, they are then averaged to update the single kernel.</p>
+<p><b> Locally-connected layer</b></p>
+<p>Sometimes it does not make sense to use the same convolutional kernel across the entire image. When different kernel weights are used in different regions of the image, the layer is typically called a <em>locally-connected layer</em>.</p>
+<h4 class='section_entry' id='2.1.2.'>2.1.2. Pooling layer</h4>
+<p>The pooling layer servers two purposes: </p>
+<ol>
+<li><p>mitigate the network's sensitivity to minor displacements in the input picture </p>
+<li><p>downsamples representation </p>
+
+</ol>
+<p>It operates over each activation map independently. The pooling operation can be a max or averaging operation with a kernel size \(K\), with a stride \(S\).</p>
+<h4 class='section_entry' id='2.1.3.'>2.1.3. Network architecture</h4>
+<p>ConvNets are stacks of convolutional, activation, pooling, and fully-connected (FC) layers. A traditional architecture lookes like </p>
+\[\begin{align}
+  ( (\text{Conv} + \text{ReLU}) * N + \text{Pooling} ) * M + ( \text{FC} + \text{ReLU} ) * L + \text{Softmax}
+\end{align}\]
+<p><b> Relationship to fully-connected networks</b></p>
+<p>For any convolutional layer, there is an equivalent fully-connected layer that implements the same forward function. Conversely, any fully-connected layer can be cast into an equivalent convolutional format by simple introducing a kernel that is the same size as the input image. Despite the mathematical equivalence, there are advantages to using convolutional layers:</p>
+<ol>
+<li><p>The ability to express fully-connected layers as a convolutional layer is useful. When the input image increases in size, we can use the same ConvNet to slide across the larger images in a single forward pass, instead of running the MLP over cropped images multiple times to achieve the same result.</p>
+<li><p>When expressing a convolutional layer as a fully-connected layer, the FC weights matrix contains many identical blocks due to weight-sharing of the kernels that concerns only local connectivity, and the large matrix is mostly zero. Thus, the conv layer contain many fewer parameters to train.</p>
+<li><p>Fully-connected architecture ignores the topology of the input. ConvNet gleams features from local structures in the input 2D images, and ensures some degree of shift, scale, and distortion invariance by its local receptive fields, shared weights, and spatial/temporal subsampling in pooling.</p>
+
+</ol>
+<p><b> Deleting pooling layers</b></p>
+<p>There are suggestions to remove pooling layers and downsample with conv layers using large strides.</p>
+<p><em>Reference</em> </p>
+<ul>
+<li><p>J. T. Springenberg, A. Dosovitskiy, T. Brox, M. Riedmiller, <a href='https://arxiv.org/abs/1412.6806'>Striving for Simplicity: The All Convolutional Net</a>, 2015</p>
+
+</ul>
+<h3 class='section_entry' id='2.2.'>2.2. Example implementations</h3>
+<h4 class='section_entry' id='2.2.1.'>2.2.1. Rewrite MLP(32,10) for MNIST as a ConvNet</h4>
+<p>We rewrite <a href='#mlp32_10'>MLP(32,10)</a> as a ConvNet. The resulting digit classification should perform the same. The layers in this ConvNet consist of: </p>
+<ol>
+<li><p>Conv: \(K=28\), \(S=1\), \(C=32\), filter depth is 1, \(28^2 \times 1 \times 32 + 32 = 25120\) trainable parameters. </p>
+<li><p>Activation: both sigmoid and ReLU are implemented. </p>
+<li><p>Conv: \(K=1\), \(S=1\), \(C=10\), filter depth is 32, \(1^2 \times 32 \times 10 + 10 = 330\) trainable paraemters. </p>
+<li><p>Softmax and cross-entropy loss. </p>
+
+</ol>
+<h4 class='section_entry' id='2.2.2.'>2.2.2. LeNet-5 for MNIST classification</h4>
+<p>We implement LeNet-5 and test it on the MNIST data set. The layers in the network architecture are: </p>
+<ol>
+<li><p>Conv: kernel size \(K=5\), stride \(S=1\), depth \(C=6\), resulting in 6 feature maps, \(5^2 \times 6 + 6 = 156\) trainable parameters. </p>
+<li><p>Subsampling: \(K=2\), \(S=2\), \(C=6\), average-pooling, times coefficient, add bias, pass through the sigmoid function. There are \((1+1) \times 6 = 12\) trainable parameters, for the coefficient and bias in 6 layers. </p>
+<li><p>Conv: \(K=5\), \(S=1\), \(C=16\). The first 6 filters take from 3 contiguous subsampled feature maps, the next 6 from 4, the next 3 from 4 discontiguous subsampled feature maps, and the last filter from all 6. There are \(5^2 \times (3 \times 6 + 4 \times 6 + 4 \times 3 + 6) + 16 = 1516\) trainable parameters. </p>
+<li><p>Subsampling: \(K=2\), \(S=2\), \(C=16\), \((1+1)\times 16 = 12\) parameters. </p>
+<li><p>Conv/FC: \(K=5\), \(S=1\), \(C=120\), \(5^2 \times 16 \times 120 + 120 = 48120\) trainable connections. </p>
+<li><p>FC: 84 nodes, \(120 \times 84 + 84 = 10164\) parameters. </p>
+<li><p>Output layer: Euclidean Radial Basis Function units, one for each of the 10 classes, with 84 input each: </p>
+\[\begin{align} y_i = \sum_j (x_j - w_{ij})^2 \end{align}\]
+
+</ol>
+<p>@@@ Note that since LeNet-5, the preference for the pooling layer is max-pool. Do the state of the art ConvNets use multiplication coefficient, bias, and activation functions still?</p>
+<p><em>Reference</em> </p>
+<ul>
+<li><p>Y. LeCun, L. Bottou, Y. Bengio, P, Haffner, <a href='http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf'>Gradient-Based Learning Applied to Document Recognition</a>, 1998 </p>
+
+</ul>
+<h2 class='section_entry' id='3.'><span class='marker'></span>3. PointNet</h2>
+<h3 class='section_entry' id='3.1.'>3.1. Notes to sort and add</h3>
+<h3 class='section_entry' id='3.2.'>3.2. Architecture</h3>
+<ul>
+<li><p>Max pooling layer: a symmetric function to aggregate information from all of the points.</p>
+<li><p>Local and global information combination structure</p>
+<li><p>Two joint alignment networks to align both input points and point features</p>
+
+</ul>
+<h4 class='section_entry' id='3.2.1.'>3.2.1. Symmetry function for unordered input</h4>
+<p>There are three strategies to make a model invariant to input permutation, </p>
+<ol>
+<li><p>Sort the input into a <em>canonical order</em>. This means to sort the input based on features that are intrinsic to the data as a preprocessing step, so that any input order will be pre-sorted according to the same criteria.</p>
+<li><p>Treat the unordered input as a sequence to train an RNN as the symmetrical function, augment the training data by all kinds of permutations</p>
+<li><p>Use a simple symmetric function to aggregate the information from each point, that is, the symmetric function produces an output vector that is invariance to the input vector's internal elements ordering.</p>
+
+</ol>
+<p>The symmetric function approach is used in PointNet, as follows </p>
+\[\begin{align}
+  f({x_1, ..., x_N}) \approx g(h(x_1), ... h(x_N))
+\end{align}\]
+<p>where </p>
+\[\begin{align*}
+  f : 2^{\mathbb{R}^N} &amp;\mapsto \mathbb{R} \\
+  h : \mathbb{R}^N &amp;\mapsto \mathbb{R}^K \\
+  g : \mathbb{R}^K \times ... \times \mathbb{R}^K &amp;\mapsto \mathbb{R}
+\end{align*}\]
+<p>where \(N\) is the number of input points. \(h\) is approximated by a MLP. \(g\) is the symmetric function, implemented as a single variable function plus a max pooling function. The result \(f = [f_1, ..., f_K]\) after max pooling is a global feature of the input set. For classification, we can train an SVM or a MLP classifier on \(f\). However, point segmentation requires more network structures, addressed in the sections below.</p>
+<h4 class='section_entry' id='3.2.2.'>3.2.2. Local and global information aggregation</h4>
+<p>Before the final MLP and max pooling to form the global feature, we have the transformed per-point features. Point segmentation requires knowledge of both local and global features. Therefore, the global feature is concatenated onto the local features.</p>
+<h4 class='section_entry' id='3.2.3.'>3.2.3. Joint alignment network</h4>
+<p>More than set order invariance, semantic labeling of a point cloud needs to be invariant under certain geometric transformations, e.g. rigid body transformations. Again, a solution is to align the input set to a canonical space before feature extraction. PointNet does it by training an affine transformation matrix <em>T-net</em>. The same idea is applied to the alignment of feature space as well.</p>
+<h3 class='section_entry' id='3.3.'>3.3. Example implementations</h3>
+<h4 class='section_entry' id='3.3.1.'>3.3.1. MNIST as a 2D point cloud, classification, no <em>T-net</em></h4>
+<p>Following Appendix F in the PointNet paper, we transform the MNIST image data to pixel sets by intensity thresholding for values larger than 128. Each pixel contain the \((x,y)\) coordinates in the image. The set size is limited to 256. If there are more than 256 pixels after thresholding, randomly subsample to 256 points. If there are fewer than 256 pixels, then randomly repeat points from the set for padding.</p>
+<h4 class='section_entry' id='3.3.2.'>3.3.2. MNIST, segmentation</h4>
+<p>For point segmentation, we will attempt to segment which pixels are the numbers and which are the background. With clean data, the segmentation is simply color based. To better test the PointNet implementation, we can add white or gray noise pixels and see how well segmentation performs.</p>
+<h2 class='section_entry' id='4.'><span class='marker'></span>4. Appendix</h2>
+<h3 class='section_entry' id='4.1.'>4.1. Matrix derivatives</h3>
+<h4 class='section_entry' id='4.1.1.'>4.1.1. Matrix-vector multiplication</h4>
 \[\begin{align}
   y_{n \times 1} = A_{n \times m}x_{m \times 1} \\
   f(y) : \mathbb{R}^{n \times 1} \mapsto \mathbb{R}
@@ -340,7 +464,7 @@ tt {
   \frac{\partial f}{\partial x} &amp;= A^T \frac{\partial f}{\partial y} \\
   (m \times 1) &amp;= (m \times n)(n \times 1) \nonumber
 \end{align}\]
-<h4 class='section_entry' id='2.1.2.'>2.1.2. Elementwise vector function</h4>
+<h4 class='section_entry' id='4.1.2.'>4.1.2. Elementwise vector function</h4>
 \[\begin{align}
   y_{n \times 1} = \omega(x_{n \times 1}) \\
   f(y) : \mathbb{R}^{n \times 1} \mapsto \mathbb{R}
@@ -361,7 +485,7 @@ tt {
   \frac{\partial f}{\partial x} &amp;= \omega'(x) \frac{\partial f}{\partial y} \\
   (n \times 1) &amp;= (n \times n)(n \times 1) \nonumber
 \end{align}\]
-<h4 class='section_entry' id='2.1.3.'>2.1.3. Matrix-matrix multiplication</h4>
+<h4 class='section_entry' id='4.1.3.'>4.1.3. Matrix-matrix multiplication</h4>
 \[\begin{align}
   Y_{m \times l} &amp;= A_{m \times n}X_{n \times l}
 \end{align}\]
@@ -388,7 +512,7 @@ tt {
 \[\begin{align}
   \frac{\partial f}{\partial A} = \frac{\partial f}{\partial Y} X^T
 \end{align}\]
-<h4 class='section_entry' id='2.1.4.'>2.1.4. Elementwise matrix function</h4>
+<h4 class='section_entry' id='4.1.4.'>4.1.4. Elementwise matrix function</h4>
 \[\begin{align}
   Y_{n \times m} = \omega(X_{n \times m}) \\
   f(Y) : \mathbb{R}^{n \times m} \mapsto \mathbb{R}
@@ -403,6 +527,17 @@ tt {
 \[\begin{align}
   \frac{\partial f}{\partial X_{ij}} = \frac{\partial f}{\partial Y_{ij}} \omega'(X_{ij})
 \end{align}\]
+<h3 class='section_entry' id='4.2.'>4.2. Convolution</h3>
+<p>We start with 1D convolution. \(f\) and \(g\) are both 1D signals. \(f\) has length \(n\), \(g\) has length \(m\). The convolution of the two signals is defined as </p>
+\[\begin{align}
+  (f*g)_i = \sum_j^m g(j) f(i-j+m/2)
+\end{align}\]
+<p>Effectively, we are sliding the kernel \(g\) across \(f\). At each kernel position, we multiply the overlapping values of the kernel and the image and sum the results.</p>
+<p>Convolution is associative, e.g. if we want to convolve \(f\) with kernels \(g\) and \(h\), then </p>
+\[\begin{align}
+  f*g*h = f*(g*h)
+\end{align}\]
+<p>When the kernel sizes are much smaller than the input image size, convolving the kernels first reduces the amount of computation.</p>
 
 
 <script type="text/javascript">
