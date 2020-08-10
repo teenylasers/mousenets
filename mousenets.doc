@@ -246,26 +246,85 @@ Alternatively, some implementations cache @m{X^{(i)}} for all samples, and perfo
 
 @subsubsection{Convolutional layer}
 
-For an input with the dimension @m{W^{(i-1)} \times H^{(i-1)} \times C^{(i-1)}}, it is convolved with a kernel of size @m{K \times K \times C^{(i-1)}}. Both the input and the kernelt have the same depth, or number of channels, @m{C^{(i-1)}} The convolutional layer is defined by the following hyperparameters,
+For an input with the dimension @m{N_x^{(i-1)} \times N_y^{(i-1)} \times C^{(i-1)}}, it is convolved with a kernel of size @m{K \times K \times C^{(i-1)}}. Both the input and the kernelt have the same depth, or number of channels, @m{C^{(i-1)}} The convolutional layer is defined by the following hyperparameters,
 @list{
   @* @m{C}, the number of filters
   @* @m{K}, filter kernel size, where @m{K \geq 1}
   @* @m{S}, stride, displacement between kernel scans
   @* @m{P}, zero-padding around the edges of the input
 }
-This results in an output of dimensions @m{W^{(i)} \times H^{(i)} \times C^{(i)}}, where
+This results in an output of dimensions @m{N_x^{(i)} \times N_y^{(i)} \times C^{(i)}}, where
 @M{
-  W^{(i)} &= (W^{(i-1)} - K + 2P)/S + 1 \nonumber \\
-  H^{(i)} &= (H^{(i-1)} - K + 2P)/S + 1 \\
+  N_x^{(i)} &= (N_x^{(i-1)} - K + 2P)/S + 1 \nonumber \\
+  N_y^{(i)} &= (N_y^{(i-1)} - K + 2P)/S + 1 \\
   C^{(i)} &= C \nonumber
 }
-Each filter has @m{K^2C^{(i-1)}+1} parameters, @m{+1} for the bias. The number of parameters to train in this layer is @m{C^{(i)}(K^2C^{(i-1)}+1)}.
+Each filter has @m{K^2C^{(i-1)}+1} parameters, @m{+1} for the bias @m{b}. The number of parameters to train in this layer is @m{C^{(i)}(K^2C^{(i-1)}+1)}.
 
 Note that the same @m{K \times K} kernel is shared across the entire input image for that filter layer. During backpropagation, every neuron in the volume will compute the gradient for its kernel weights, they are then averaged to update the single kernel.
+
+Using similar notations as the fully-connected layer, we call the kernel the weight matrix @m{W}, the output of the convolutional layer @m{H}. For the @m{i}-th layer,
+
+@M{
+  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b
+}
+where @m{b} is the bias, and this convolution is repeated for the @m{c = 1..C^{(i)}} kernels in this layer. The complete convolution for in this layer is then
+
+@M{ \label{eq:conv_layer}
+  H^{(i)}_{ijc} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W_{pqrc} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b_c
+}
+
 
 @b{Locally-connected layer}
 
 Sometimes it does not make sense to use the same convolutional kernel across the entire image. When different kernel weights are used in different regions of the image, the layer is typically called a @emph{locally-connected layer}.
+
+
+@b{Backpropagation}
+
+To backpropagate the loss gradient @m{\partial \mathcal{L} / \partial H^{(i)}} to the weights @m{\partial \mathcal{L} / \partial W} and the biases @m{\partial \mathcal{L} / \partial b}, we apply the chain rule on @eqref{conv_layer},
+
+@M{
+  \frac{\partial \mathcal{L}}{\partial W_{pqrc}}
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+       \frac{\partial H^{(i)}_{ijc}}{\partial W_{pqrc}} \nonumber \\
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+       X^{(i-1)}_{Si+p-1, Sj+q-1, r}
+}
+@M{
+  \frac{\partial \mathcal{L}}{\partial b_c}
+    = \sum_i \sum_j
+      \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+      \frac{\partial H^{(i)}_{ijc}}{\partial b_c}
+    = \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+}
+To get @m{\partial \mathcal{L} / \partial X^{(i-1)}}, we rewrite the indices of @eqref{conv_layer}
+@M{
+  H^{(i)}_{ijc} = \sum_{l} \sum_{m} \sum_{r} W_{l+1-Si, m+1-Sj, r, c} X^{(i-1)}_{lmr} + b_c
+}
+then
+@M{
+  \frac{\partial \mathcal{L}}{\partial X_{lmr}}
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+       \frac{\partial H^{(i)}_{ijc}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+       W_{l+1-Si,m+1-Sj,r,c}
+}
+
+
+@subsubsection{ReLU layer}
+
+@M{
+  \text{ReLU}(x) = \max{(x,0)}
+}
+@M{
+  \frac{\partial \mathcal{L}}{\partial x}
+    = \begin{cases}
+      1, x > 0 \\
+      0, x \leq 0
+      \end{cases}
+}
+
 
 @subsubsection{Pooling layer}
 
