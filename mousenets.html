@@ -385,9 +385,9 @@ tt {
 <p>then </p>
 \[\begin{align}
   \frac{\partial \mathcal{L}}{\partial X^{(i-1)}_{lmr}}
-    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+    &amp;= \sum_i \sum_j \sum_c \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        \frac{\partial H^{(i)}_{cij}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
-    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+    &amp;= \sum_i^{N_x^{(i)}} \sum_j^{N_y^{(i)}} \sum_c^{C^{(i)}} \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        W^{(i)}_{c,l+1-Si,m+1-Sj,r}
 \end{align}\]
 <h4 class='section_entry' id='2.1.2.'>2.1.2. ReLU layer</h4>

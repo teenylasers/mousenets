@@ -23,7 +23,7 @@ class Layer(object):
     """Assume we have performed backprop to update self.dLdx and self.dLdw,
     check them against numerical calculations from the same dLdy."""
     # dLdx, dLdw = analytical gradient
-    dLdx, dLdw = backprop(dLdy, save=False)
+    dLdx, dLdw = self.backprop(dLdy, save=False)
 
     return self._check_gradient_dLdx(dLdy, dLdx) and \
       self._check_gradient_dLdw(dLdy, dLdw)
@@ -31,13 +31,16 @@ class Layer(object):
 
   @abc.abstractmethod
   def _check_gradient_dLdx(self, dLdy, dLdx):
+    """Check the backprop analytical gradient dLdx against the equivalent
+    numerical calculation."""
     return
 
 
   @abc.abstractmethod
-  def _check_gradient_dLdw(self, dLdy, dLdw):
+  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb=None):
+    """Check the backprop analytical gradient dLdw (and dLdb for some layer
+    implementations) against the equivalent numerical calculation."""
     return
-
 
 
 
@@ -170,19 +173,8 @@ class DenseLayer(Layer):
     self.w = self.w - self.dLdw / batch_size
 
 
-  def check_gradient(self, dLdy):
-    """Assume we have performed backprop to update self.dLdx and self.dLdw,
-    check them against numerical calculations from the same dLdy."""
-    # dLdx, dLdw = analytical gradient
-    dLdx, dLdw = self.backprop(dLdy, save=False)
-
-    return self._check_gradient_dLdx(dLdy, dLdx) and \
-      self._check_gradient_dLdw(dLdy, dLdw)
-
-
   def _check_gradient_dLdx(self, dLdy, dLdx):
-    """Check the backprop analytical gradient dLdx against the equivalent
-    numerical calculation."""
+
     # dydx = [y_j(x + eps) - y_j(x - eps)] / (2*eps)
     # dLdx = \sum_j dLdy_j * dydx
 
@@ -208,9 +200,11 @@ class DenseLayer(Layer):
     return np.max(np.square(g-dLdx)) < kAllowNumericalErr
 
 
-  def _check_gradient_dLdw(self, dLdy, dLdw):
-    """Check the backprop analytical gradient dLdw against the equivalent
-    numerical calculation."""
+  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb=None):
+
+    assert(dLdb is None), \
+      'DenseLayer does not have a separate dLdb, it is combined with dLdw.'
+
     # dydw_j = [y_j(w + eps) - y_j(w - eps)] / (2*eps)
     # dLdw = \sum_j dLdy_j * dydw_j
 
@@ -219,7 +213,6 @@ class DenseLayer(Layer):
 
     # g = numerical loss gradient
     g = np.zeros(w_dims)
-    dydw = np.zeros(y_dims + w_dims)
     for wi in range(w_dims[0]):
       for wj in range(w_dims[1]):
         w_eps = np.zeros(w_dims)
@@ -361,11 +354,11 @@ class ConvLayer(Layer):
     if w is None:
       w = self.w
     else:
-      assert(w.shape == (nc, k, k))
+      assert(w.shape == (self.c, self.nc, self.k, self.k))
     if b is None:
       b = self.b
     else:
-      assert(b.shape == (nc, 1))
+      assert(b.shape == (self.c, 1))
 
     # Zero-padding
     xp = np.pad(x, ((0, 0),(self.p, self.p),(self.p, self.p)), 'constant')
@@ -384,7 +377,7 @@ class ConvLayer(Layer):
           sub_x = xp[:,
                      xi*self.s:xi*self.s+self.k,
                      yi*self.s:yi*self.s+self.k]
-          y[ci, xi, yi] = np.sum(sub_x)
+          y[ci, xi, yi] = np.sum(sub_x * w[ci])
 
     # Save results if needed
     if save:
@@ -444,7 +437,60 @@ class ConvLayer(Layer):
     return (dLdx, dLdw, dLdb)
 
 
-class ActivationLayer(Layer):
+  def _check_gradient_dLdx(self, dLdy, dLdx):
+
+    # self.x = (nc * nx * ny)
+    x_dims = self.x.shape
+
+    # g = numerical gradient
+    g = np.zeros(x_dims)
+    for cii in range(self.nc):
+      for xii in range(self.nx):
+        for yii in range(self.ny):
+          x_eps = np.zeros(x_dims)
+          x_eps[cii, xii, yii] = kEpsilonNumericalGrad
+          dydx = (self.forward_pass(self.x + x_eps, save=False) - \
+                  self.forward_pass(self.x - x_eps, save=False))  \
+                  / 2.0 / kEpsilonNumericalGrad
+          g[cii, xii, yii] = np.sum(dLdy * dydx)
+
+    # Return check results
+    return np.max(np.square(g-dLdx)) < kAllowNumericalErr
+
+
+  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb):
+
+    w_dims = self.w.shape # self.w = (c * k * k)
+    b_dims = self.b.shape # self.b = (c
+
+    # gw = numerical gradient equivalent for dLdw
+    gw = np.zeros(w_dims)
+    for ci in range(self.c):
+      for nci in range(self.nc):
+        for wi in range(self.k):
+          for wj in range(self.k):
+            w_eps = np.zeros(w_dims)
+            w_eps[ci, nci, wi, wj] = kEpsilonNumericalGrad
+            dydw = (self.forward_pass(self.x, save=False, w = self.w + w_eps) - \
+                    self.forward_pass(self.x, save=False, w = self.w - w_eps))  \
+                    / 2.0 / kEpsilonNumericalGrad
+            gw[ci, nci, wi, wj] = np.sum(dLdy * dydw)
+
+    # gb = numerical gradient equivalent for dLdb
+    for ci in range(self.c):
+      b_eps = np.zeros(b_dims)
+      b_eps[ci] = kEpsilonNumericalGrad
+      dydb = (self.forward_pass(self.x, save=False, w=None, b = self.b + b_eps) - \
+              self.forward_pass(self.x, save=False, w=None, b = self.b - b_eps))  \
+              / 2.0 / kEpsilonNumericalGrad
+      gb[ci] = np.sum(dLdy * dydb)
+
+    # Return check results
+    return (np.max(np.square(gw-dLdw)) < kAllowNumericalErr) and \
+      (np.max(np.square(gb-dLdb)) < kAllowNumericalErr)
+
+
+Class(Layer):
   """
   An activation layer that takes a 3D matrix as input.
   """

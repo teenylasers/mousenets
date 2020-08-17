@@ -307,9 +307,9 @@ To get @m{\partial \mathcal{L} / \partial X^{(i-1)}}, we rewrite the indices of 
 then
 @M{
   \frac{\partial \mathcal{L}}{\partial X^{(i-1)}_{lmr}}
-    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+    &= \sum_i \sum_j \sum_c \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        \frac{\partial H^{(i)}_{cij}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
-    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+    &= \sum_i^{N_x^{(i)}} \sum_j^{N_y^{(i)}} \sum_c^{C^{(i)}} \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        W^{(i)}_{c,l+1-Si,m+1-Sj,r}
 }
 
