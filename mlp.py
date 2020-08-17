@@ -1,204 +1,6 @@
 import numpy as np
-
-
-kEpsilonNumericalGrad = 1e-5
-kAllowNumErr = 1e-4
-
-
-class Layer:
-  """
-  A single layer in an MLP, f(h) = f(w.dot(x))
-  """
-  # Definitions:
-
-  # n = layer width
-  # x = input vector
-  # n_x = input vector length
-  # w = weights matrix
-  # h = intermediate variable, w.dot(x)
-  # y = output vector
-
-  # activation = activation function name
-  # f = the activation function
-  # dfdh = the derivative of the activation function
-
-  # dLdx = backpropagation from dLdy to dLdx
-  # dLdw = backpropagation from dLdy to dLdw
-
-  def __init__(self, nx, n, activation, w=None):
-
-    assert(isinstance(n, int) and n > 0), 'n should be an integer and >0.'
-    assert(isinstance(nx, int) and nx > 0), 'nx should be an integer and >0.'
-
-    self.nx = nx
-    self.n = n
-    self.activation = activation
-    if self.activation == 'sigmoid':
-      self.f = self._f_sigmoid
-      self.dfdh = self._dfdh_sigmoid
-    elif self.activation == "softmax":
-      self.f = self._f_softmax
-      self.dfdh = self._dfdh_softmax
-    else:
-      print("Error: activation function %s is not implemented.",
-            self.activation)
-
-    # Initialize w if not provided
-    if w is None:
-      self.w = self._initialize_weights(self.n, self.nx)
-    else:
-      assert(w.shape == (self.n, self.nx)), \
-        'User input w has the wrong dimensions {}'.format(w.shape)
-      self.w = w
-
-    # Initialize/reset the remaining states of this layer: self.x, h, y, dLdx, dLdw
-    self.reset_cache()
-
-
-  def _initialize_weights(self, n, m):
-    """Initialize a weights matrix of dimensions (n x m)."""
-    return np.random.rand(self.n, self.nx) * 2 - 1
-
-
-  def reset_cache(self):
-    """Clear cached states. self.x, h, y, dLdw, and dLdy"""
-    self.x = None
-    self.h = None
-    self.y = None
-    # For batch training, we accumulate dLdw from each sample and update w at
-    # the end of the batch.
-    self.dLdw = np.zeros((self.n, self.nx))
-    self.dLdy = None
-
-
-  def forward_pass(self, x, save, w=None):
-    """Perform forward pass on this layer using input x, return the output y.
-    If cache, then append this state to self.x, self.h, and self.y. """
-
-    assert(isinstance(x, np.ndarray)), 'x should be a numpy array.'
-    assert(len(x.shape)==1), 'x should be a vector.'
-    if w is not None:
-      assert(not save), \
-        'When user specifies a weights matrix w, cannot save the results to '\
-        'modify the layer.'
-
-    if w is None:
-      h = self.w.dot(x)
-    else:
-      h = w.dot(x)
-
-    y = self.f(h)
-
-    if save:
-      self.x = x
-      self.h = h
-      self.y = y
-
-    # Return output of this layer
-    return y
-
-
-  def backprop(self, dLdy, save):
-    """Calculate and return (dLdx, dLdw). If save, append this dLdw to
-    self.dLdw, and save self.dLdy."""
-    # dLdy = (n * 1)
-    # dydh = dfdh = (n * n) diagonal
-    # dhdx = (n * nx) = w
-    # dhdw = (nx * 1) = x
-    # dLdw = dydh * dLdy * dhdw.T
-    # dLdx = dhdx.T * dydh * dLdy
-
-    # Do backprop
-    dydh = self.dfdh(self.h)
-    if len(self.x.shape) == 1:
-      # numpy does not distinguish between row and column vectors, use np.outer
-      dLdw = np.outer(dydh @ dLdy, self.x.T)
-    else:
-      dLdw = dydh @ dLdy @ self.x.T
-    dLdx = self.w.T @ dydh @ dLdy
-    if save:
-      self.dLdx = dLdx
-      self.dLdw = self.dLdw + dLdw
-      self.dLdy = dLdy # Cache dLdy for gradient checking
-
-    # Return dLdx for the next layer's backprop
-    return dLdx, dLdw
-
-
-  def update_weights(self, dLdw, batch_size):
-    """Given a dLdw and the batch_size that accumulated it, update self.w."""
-    self.w = self.w - self.dLdw / batch_size
-
-
-  def check_gradient(self):
-    """Assume we have performed backprop to update self.dLdx and self.dLdw,
-    check them against numerical calculations from the same dLdy."""
-    self._check_gradient_dLdx()
-    # self._check_gradient_dLdw()
-
-
-  def _check_gradient_dLdx(self):
-    """Check input gradient dLdx against numerical calculation."""
-    # dLdx = [L(x + eps) - L(x - eps)] / (2*eps)
-    # dLdx = \sum_j dLdy_j * [y_j(x + eps) - y_j(x - eps)] / (2*eps)
-
-    # g = numerical gradient
-    g = np.zeros(self.nx)
-    for i in range(self.nx):
-      x_eps = np.zeros(self.nx)
-      x_eps[i] = kEpsilonNumericalGrad
-      dydx = (self.forward_pass(self.x + x_eps, save=False) - \
-              self.forward_pass(self.x - x_eps, save=False))  \
-              / 2.0 / kEpsilonNumericalGrad
-      g[i] = self.dLdy.dot(dydx)
-
-    # dLdx, dLdw = analytical gradient
-    dLdx, dLdw = backprop(self.dLdy, save=False)
-
-    # print output. TODO: check and return bool
-    print(dLdx)
-    print(g)
-    print(np.max(dLdx - g))
-    print(np.min(dLdx - g))
-
-
-  def get_input_size(self):
-    return self.nx
-
-
-  def get_width(self):
-    return self.n
-
-
-  def get_weights(self):
-    return self.w
-
-
-  def _f_sigmoid(self, h):
-    """Evaluate the sigmoid function for h, where h is a vector or a matrix."""
-    return 1 / (1 + np.exp(-h))
-
-
-  def _dfdh_sigmoid(self, h):
-    """Evaluate the gradient of sigmoid function at h, where h is a vector."""
-    f_h = self._f_sigmoid(h)
-    return np.diag((1 - f_h)*f_h)
-
-
-  def _f_softmax(self, h):
-    """Evaluate the softmax function for h, where h is a vector."""
-    assert(len(h.shape)==1), 'Input arg h should be a vector.'
-    exp_h = np.exp(h)
-    return exp_h/np.sum(exp_h)
-
-
-  def _dfdh_softmax(self, h):
-    """Evaluate the gradient of softmax function at h, where h is a vector."""
-    assert(len(h.shape)==1), 'Input arg h should be a vector.'
-    f_h = self._f_softmax(h)
-    dfdh = np.diag(f_h) - np.outer(f_h, f_h)
-    return dfdh
-
+from constants import *
+from layer import *
 
 
 class LossFunction:
@@ -239,7 +41,7 @@ class MLP:
   A multi-layer perception
   """
   # Definitions:
-  #
+
   # nx0 = input data dimension
   # ny = output and training data dimension
   # x0 = MLP input, (nx0 * 1)
@@ -273,7 +75,7 @@ class MLP:
     # Automatically extend n by +1 for bias term.
     in_dimension += 1
     # Append the new layer.
-    self.layers.append(Layer(in_dimension, n, activation, w))
+    self.layers.append(DenseLayer(in_dimension, n, activation, w))
 
 
   def define_loss_function(self, loss_fxn_type):
@@ -390,7 +192,7 @@ class MLP:
 
     # Compare numerical and analytical gradients
     gradient_diff = g - dLdw
-    if np.all(abs(gradient_diff) < kAllowNumErr):
+    if np.all(abs(gradient_diff) < kAllowNumericalErr):
       return True
     else:
       print('MLP._check_gradient_from_layer_dLdw, numerical gradient =')
@@ -428,7 +230,7 @@ class MLP:
 
     # Compare numerical and analytical gradients
     gradient_diff = g - dLdx
-    if np.all(abs(gradient_diff) < kAllowNumErr):
+    if np.all(abs(gradient_diff) < kAllowNumericalErr):
       return True
     else:
       print('MLP._check_gradient_from_layer_dLdx, numerical gradient =')

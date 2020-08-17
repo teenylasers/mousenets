@@ -1,9 +1,8 @@
 import unittest
 import numpy as np
-
+from constants import *
 from mlp import *
 
-kAllowNumErr = 1e-4
 
 class MLPTest(unittest.TestCase):
 
@@ -11,7 +10,7 @@ class MLPTest(unittest.TestCase):
         """Check y == sigmoid(w*x)"""
         h = w.dot(np.append(x, 1))
         x1 = 1/(1 + np.exp(-h))
-        if (all([it < kAllowNumErr for it in (x1-y)])):
+        if (all([it < kAllowNumericalErr for it in (x1-y)])):
             return True
         else:
             print('Sigmoid function implementation is incorrect: \n'
@@ -22,7 +21,7 @@ class MLPTest(unittest.TestCase):
         """Check y == softmax(w*x)"""
         h = w.dot(np.append(x, 1))
         x1 = np.exp(h) / np.sum(np.exp(h))
-        if (all([it < kAllowNumErr for it in (x1-y)])):
+        if (all([it < kAllowNumericalErr for it in (x1-y)])):
             return True
         else:
             print('Softmax function implementation is incorrect: \n'
@@ -82,7 +81,6 @@ class MLPTest(unittest.TestCase):
 
         # Check gradient
         assert(mlp.check_gradient_from_layer(1, y, loss_grad))
-
 
 
 if __name__ == '__main__':
