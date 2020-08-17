@@ -23,10 +23,10 @@ class Layer(object):
     """Assume we have performed backprop to update self.dLdx and self.dLdw,
     check them against numerical calculations from the same dLdy."""
     # dLdx, dLdw = analytical gradient
-    dLdx, dLdw = self.backprop(dLdy, save=False)
+    dLdx, dLdw, dLdb = self.backprop(dLdy, save=False)
 
     return self._check_gradient_dLdx(dLdy, dLdx) and \
-      self._check_gradient_dLdw(dLdy, dLdw)
+      self._check_gradient_dLdw(dLdy, dLdw, dLdb)
 
 
   @abc.abstractmethod
@@ -165,7 +165,7 @@ class DenseLayer(Layer):
       self.dLdy = dLdy # Cache dLdy for gradient checking
 
     # Return (dLdx, dLdw) for the previous layer's backprop
-    return dLdx, dLdw
+    return dLdx, dLdw, None
 
 
   def update_weights(self, dLdw, batch_size):
@@ -291,7 +291,7 @@ class ConvLayer(Layer):
   # w = kernels = (c * nc * k * k) matrix
   # xp = padded input image, (nc * (nx+2p) * (ny+2p)) matrix
 
-  def __init__(self, nx, ny, nc, k, c, s, p, w=None):
+  def __init__(self, nx, ny, nc, k, c, s, p, w=None, b=None):
 
     assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0 \
            and isinstance(nc, int) and nc > 0)
@@ -306,16 +306,21 @@ class ConvLayer(Layer):
     self.s = s
     self.p = p
 
-    self.nxo = (nx + 2*p - k)/s + 1
-    self.nyo = (ny + 2*p - k)/s + 1
+    self.nxo = int((nx + 2*p - k)/s + 1)
+    self.nyo = int((ny + 2*p - k)/s + 1)
 
-    # Initialize kernels
+    # Initialize kernel and bias
     if w is None:
       self.w = self._initialize_kernel(self.k, self.nc, self.c)
     else:
       assert(w.shape == (self.c, self.nc, self.k, self.k)), \
         'User input w has the wrong dimensions {}'.format(w.shape)
       self.w = w
+    if b is None:
+      self.b = self._initialize_bias(self.c)
+    else:
+      assert(b.shape == (self.c, 1)), \
+        'User input b has the wrong dimensions {}'.format(w.shape)
 
     # Initialize/reset the remaining states of this layer
     self.reset_cache()
@@ -324,6 +329,11 @@ class ConvLayer(Layer):
   def _initialize_kernel(self, k, nc, c):
     """Initialize a kernel matrix of dimensions (k * k * nc)."""
     return np.random.rand(c, nc, k, k) * 2 - 1
+
+
+  def _initialize_bias(self, c):
+    """Initialize a bias vector of dimensions (c * 1)."""
+    return np.random.rand(c, 1) * 2 - 1
 
 
   def reset_cache(self):
@@ -345,10 +355,6 @@ class ConvLayer(Layer):
     assert(x.shape[0]==self.nc and x.shape[1]==self.nx and x.shape[2]==self.ny), \
       'x should have dimensions (%d,%d,%d), not %r' % \
       (self.nc, self.nx, self.ny, x.shape)
-    if w is not None:
-      assert(not save), \
-        'When user specifies w, cannot save the results to modify the layer '\
-        'property.'
 
     # Form w and b, the kernel and associated bias to use in this forward prop.
     if w is None:
@@ -381,6 +387,7 @@ class ConvLayer(Layer):
 
     # Save results if needed
     if save:
+      self.x = x
       self.xp = xp
       self.y = y
 
@@ -403,11 +410,11 @@ class ConvLayer(Layer):
               for yi in range(self.nyo): # output y index
                 dLdw[ci, nci, kxi, kyi] += dLdy[ci, xi, yi] * \
                   self.xp[nci,
-                          self.s * xi + self.kxi - 1,
-                          self.s * yi + self.kyi - 1]
+                          self.s * xi + kxi - 1,
+                          self.s * yi + kyi - 1]
 
     # dLdb = (ci * 1)
-    dLdb = np.zeros((self.ci, 1))
+    dLdb = np.zeros((self.c, 1))
     for ci in range(self.c):
       for xi in range(self.nxo):
         for yi in range(self.nyo):
@@ -421,10 +428,15 @@ class ConvLayer(Layer):
           for xoi in range(self.nxo): # output x index
             for yoi in range(self.nyo): # output y index
               for ci in range(self.c):
-                dLdx[nci, xi, yi] += dLdy[ci, xoi, yoi] * \
-                  self.w[ci,
-                         xi + 1 - self.s * xoi,
-                         yi + 1 - self.s * yoi]
+                if (xi + 1 - self.s * xoi < self.k) and \
+                   (xi + 1 - self.s * xoi >= 0) and \
+                   (yi + 1 - self.s * yoi < self.k) and \
+                   (yi + 1 - self.s * yoi >= 0):
+                  dLdx[nci, xi, yi] += dLdy[ci, xoi, yoi] * \
+                    self.w[ci,
+                           nci,
+                           xi + 1 - self.s * xoi,
+                           yi + 1 - self.s * yoi]
 
     # Save results if needed
     if save:
@@ -454,6 +466,12 @@ class ConvLayer(Layer):
                   / 2.0 / kEpsilonNumericalGrad
           g[cii, xii, yii] = np.sum(dLdy * dydx)
 
+    # Print output.
+    print("Analytical dLdx = \n%r" % dLdx)
+    print("Numerical dLdx = \n%r" % g)
+    print("Max (analytical - numerical) error = %r" % np.max(dLdx - g))
+    print("Min (analytical - numerical) error = %r" % np.min(dLdx - g))
+
     # Return check results
     return np.max(np.square(g-dLdx)) < kAllowNumericalErr
 
@@ -477,6 +495,7 @@ class ConvLayer(Layer):
             gw[ci, nci, wi, wj] = np.sum(dLdy * dydw)
 
     # gb = numerical gradient equivalent for dLdb
+    gb = np.zeros(b_dims)
     for ci in range(self.c):
       b_eps = np.zeros(b_dims)
       b_eps[ci] = kEpsilonNumericalGrad
@@ -485,12 +504,22 @@ class ConvLayer(Layer):
               / 2.0 / kEpsilonNumericalGrad
       gb[ci] = np.sum(dLdy * dydb)
 
+    # Print output
+    print("Analytical dLdw = \n%r" % dLdw)
+    print("Numerical dLdw = \n%r" % gw)
+    print("Max (analytical - numerical) error = %r" % np.max(dLdw - gw))
+    print("Min (analytical - numerical) error = %r" % np.min(dLdw - gw))
+    print("Analytical dLdb = \n%r" % dLdb)
+    print("Numerical dLdb = \n%r" % gb)
+    print("Max (analytical - numerical) error = %r" % np.max(dLdb - gb))
+    print("Min (analytical - numerical) error = %r" % np.min(dLdb - gb))
+
     # Return check results
     return (np.max(np.square(gw-dLdw)) < kAllowNumericalErr) and \
       (np.max(np.square(gb-dLdb)) < kAllowNumericalErr)
 
 
-Class(Layer):
+class ActivationLayer(Layer):
   """
   An activation layer that takes a 3D matrix as input.
   """
@@ -545,7 +574,7 @@ Class(Layer):
     dLdx = dLdy * self.dfdx(self.x)
     if save:
       self.dLdy = dLdy
-    return dLdx
+    return dLdx, None, None
 
 
   def _f_relu(self, x):
@@ -649,7 +678,7 @@ class PoolingLayer(Layer):
       self.dLdx = dLdx
 
     # Return
-    return dLdx
+    return dLdx, None, None
 
 
   def _f_max(self, sx):
