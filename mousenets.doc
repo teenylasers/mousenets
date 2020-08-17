@@ -6,8 +6,8 @@
 
 
 
-#######################################################################
-#######################################################################
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 
 
 
@@ -235,8 +235,10 @@ Alternatively, some implementations cache @m{X^{(i)}} for all samples, and perfo
 
 
 
-#######################################################################
-#######################################################################
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+
 
 
 
@@ -266,12 +268,12 @@ Note that the same @m{K \times K} kernel is shared across the entire input image
 Using similar notations as the fully-connected layer, we call the kernel the weight matrix @m{W}, the output of the convolutional layer @m{H}. For the @m{i}-th layer,
 
 @M{
-  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b
+  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}
 }
 where @m{b} is the bias, and this convolution is repeated for the @m{c = 1..C^{(i)}} kernels in this layer. The complete convolution for in this layer is then
 
 @M{ \label{eq:conv_layer}
-  H^{(i)}_{ijc} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W_{pqrc} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b_c
+  H^{(i)}_{cij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{cpqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}_c
 }
 
 
@@ -285,40 +287,40 @@ Sometimes it does not make sense to use the same convolutional kernel across the
 To backpropagate the loss gradient @m{\partial \mathcal{L} / \partial H^{(i)}} to the weights @m{\partial \mathcal{L} / \partial W} and the biases @m{\partial \mathcal{L} / \partial b}, we apply the chain rule on @eqref{conv_layer},
 
 @M{
-  \frac{\partial \mathcal{L}}{\partial W_{pqrc}}
-    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-       \frac{\partial H^{(i)}_{ijc}}{\partial W_{pqrc}} \nonumber \\
-    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+  \frac{\partial \mathcal{L}}{\partial W^{(i)}_{cpqr}}
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+       \frac{\partial H^{(i)}_{cij}}{\partial W^{(i)}_{cpqr}} \nonumber \\
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        X^{(i-1)}_{Si+p-1, Sj+q-1, r}
 }
 @M{
-  \frac{\partial \mathcal{L}}{\partial b_c}
+  \frac{\partial \mathcal{L}}{\partial b^{(i)}_c}
     = \sum_i \sum_j
-      \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-      \frac{\partial H^{(i)}_{ijc}}{\partial b_c}
-    = \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+      \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+      \frac{\partial H^{(i)}_{cij}}{\partial b^{(i)}_c}
+    = \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
 }
 To get @m{\partial \mathcal{L} / \partial X^{(i-1)}}, we rewrite the indices of @eqref{conv_layer}
 @M{
-  H^{(i)}_{ijc} = \sum_{l} \sum_{m} \sum_{r} W_{l+1-Si, m+1-Sj, r, c} X^{(i-1)}_{lmr} + b_c
+  H^{(i)}_{cij} = \sum_{l} \sum_{m} \sum_{r} W^{(i)}_{c, l+1-Si, m+1-Sj, r} X^{(i-1)}_{lmr} + b^{(i)}_c
 }
 then
 @M{
-  \frac{\partial \mathcal{L}}{\partial X_{lmr}}
-    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-       \frac{\partial H^{(i)}_{ijc}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
-    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-       W_{l+1-Si,m+1-Sj,r,c}
+  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}_{lmr}}
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+       \frac{\partial H^{(i)}_{cij}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
+    &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+       W^{(i)}_{c,l+1-Si,m+1-Sj,r}
 }
 
 
 @subsubsection{ReLU layer}
 
 @M{
-  \text{ReLU}(x) = \max{(x,0)}
+  f_{\text{ReLU}}(x) = \max{(x,0)}
 }
 @M{
-  \frac{\partial \mathcal{L}}{\partial x}
+  \frac{\partial f_{\text{ReLU}}}{\partial x}
     = \begin{cases}
       1, x > 0 \\
       0, x \leq 0
@@ -333,7 +335,33 @@ The pooling layer servers two purposes:
   @* mitigate the network's sensitivity to minor displacements in the input picture
   @* downsamples representation
 }
-It operates over each activation map independently. The pooling operation can be a max or averaging operation with a kernel size @m{K}, with a stride @m{S}.
+It operates over each activation map independently. The pooling operation can be a max or averaging operation with a kernel size @m{K}, with a stride @m{S}. The output matrix is given by
+
+@M{
+  Y_{cij} = \text{Pool} (X_{c, Si:Si+k, Sj:Sj+k})
+}
+where the function @m{\text{Pool}(\cdot)} can be @m{\max(\cdot)} or @m{\text{mean}(\cdot)}
+
+The backpropagate the error gradient @m{\partial \mathcal{L}/\partial Y} to @m{\partial \mathcal{L}/\partial X},
+
+@M{
+  \frac{\partial \mathcal{L}}{\partial X_{cpq}} &=
+    \sum_i \sum_j
+    \frac{\partial \mathcal{L}}{\partial Y_{cij}}
+    \frac{\partial Y_{cij}}{\partial X_{cpq}}
+}
+@M{
+  \frac{\partial Y^{\text{max-pool}}_{cij}}{\partial X_{cpq}} &=
+    \begin{cases}
+    1, Y_{cij} = X_{cpq} \\
+    0, \text{otherwise}
+    \end{cases}
+}
+@M{
+  \frac{\partial Y^{\text{average-pool}}_{cij}}{\partial X_{cpq}} &=
+    \frac{X_{cpq}}{K^2}
+}
+where @m{c} is the channel index, @m{i = 0..N_x^{(i)}}, @m{j = 0..N_y^{(i)}}, @m{p = 0..N_x^{(i-1)}}, @m{q = 0..N_y^{(i-1)}}.
 
 
 @subsubsection{Network architecture}
@@ -404,8 +432,10 @@ We implement LeNet-5 and test it on the MNIST data set. The layers in the networ
   @* Y. LeCun, L. Bottou, Y. Bengio, P, Haffner, @link{http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf}{Gradient-Based Learning Applied to Document Recognition}, 1998
 }
 
-#######################################################################
-#######################################################################
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 
 
 
@@ -476,8 +506,8 @@ For point segmentation, we will attempt to segment which pixels are the numbers 
 
 
 
-#######################################################################
-#######################################################################
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 
 
 
@@ -585,5 +615,5 @@ When the kernel sizes are much smaller than the input image size, convolving the
 
 
 
-#######################################################################
-#######################################################################
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##

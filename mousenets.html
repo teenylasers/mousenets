@@ -354,49 +354,48 @@ tt {
 <p>Note that the same \(K \times K\) kernel is shared across the entire input image for that filter layer. During backpropagation, every neuron in the volume will compute the gradient for its kernel weights, they are then averaged to update the single kernel.</p>
 <p>Using similar notations as the fully-connected layer, we call the kernel the weight matrix \(W\), the output of the convolutional layer \(H\). For the \(i\)-th layer,</p>
 \[\begin{align}
-  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b
+  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}
 \end{align}\]
 <p>where \(b\) is the bias, and this convolution is repeated for the \(c = 1..C^{(i)}\) kernels in this layer. The complete convolution for in this layer is then</p>
 \[\begin{align} \label{eq:conv_layer}
-  H^{(i)}_{ijc} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W_{pqrc} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b_c
+  H^{(i)}_{cij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{cpqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}_c
 \end{align}\]
 <p><b> Locally-connected layer</b></p>
 <p>Sometimes it does not make sense to use the same convolutional kernel across the entire image. When different kernel weights are used in different regions of the image, the layer is typically called a <em>locally-connected layer</em>.</p>
 <p><b> Backpropagation</b></p>
 <p>To backpropagate the loss gradient \(\partial \mathcal{L} / \partial H^{(i)}\) to the weights \(\partial \mathcal{L} / \partial W\) and the biases \(\partial \mathcal{L} / \partial b\), we apply the chain rule on \eqref{eq:conv_layer},</p>
 \[\begin{align}
-  \frac{\partial \mathcal{L}}{\partial W_{pqrc}}
-    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-       \frac{\partial H^{(i)}_{ijc}}{\partial W_{pqrc}} \nonumber \\
-    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+  \frac{\partial \mathcal{L}}{\partial W^{(i)}_{cpqr}}
+    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+       \frac{\partial H^{(i)}_{cij}}{\partial W^{(i)}_{cpqr}} \nonumber \\
+    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        X^{(i-1)}_{Si+p-1, Sj+q-1, r}
 \end{align}\]
 \[\begin{align}
-  \frac{\partial \mathcal{L}}{\partial b_c}
+  \frac{\partial \mathcal{L}}{\partial b^{(i)}_c}
     = \sum_i \sum_j
-      \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-      \frac{\partial H^{(i)}_{ijc}}{\partial b_c}
-    = \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
+      \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+      \frac{\partial H^{(i)}_{cij}}{\partial b^{(i)}_c}
+    = \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
 \end{align}\]
 <p>To get \(\partial \mathcal{L} / \partial X^{(i-1)}\), we rewrite the indices of \eqref{eq:conv_layer} </p>
 \[\begin{align}
-  H^{(i)}_{ijc} = \sum_{l} \sum_{m} \sum_{r} W_{l+1-Si, m+1-Sj, r, c} X^{(i-1)}_{lmr} + b_c
+  H^{(i)}_{cij} = \sum_{l} \sum_{m} \sum_{r} W^{(i)}_{c, l+1-Si, m+1-Sj, r} X^{(i-1)}_{lmr} + b^{(i)}_c
 \end{align}\]
 <p>then </p>
 \[\begin{align}
-  \frac{\partial \mathcal{L}}{\partial X_{lmr}}
-    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-       \frac{\partial H^{(i)}_{ijc}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
-    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{ijc}}
-       W_{l+1-Si,m+1-Sj,r,c}
+  \frac{\partial \mathcal{L}}{\partial X^{(i-1)}_{lmr}}
+    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+       \frac{\partial H^{(i)}_{cij}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
+    &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
+       W^{(i)}_{c,l+1-Si,m+1-Sj,r}
 \end{align}\]
-<p>@@@ TODO: add subscripts to generalize for \(k\) channels</p>
 <h4 class='section_entry' id='2.1.2.'>2.1.2. ReLU layer</h4>
 \[\begin{align}
-  \text{ReLU}(x) = \max{(x,0)}
+  f_{\text{ReLU}}(x) = \max{(x,0)}
 \end{align}\]
 \[\begin{align}
-  \frac{\partial \mathcal{L}}{\partial x}
+  \frac{\partial f_{\text{ReLU}}}{\partial x}
     = \begin{cases}
       1, x &gt; 0 \\
       0, x \leq 0
@@ -409,7 +408,30 @@ tt {
 <li><p>downsamples representation </p>
 
 </ol>
-<p>It operates over each activation map independently. The pooling operation can be a max or averaging operation with a kernel size \(K\), with a stride \(S\).</p>
+<p>It operates over each activation map independently. The pooling operation can be a max or averaging operation with a kernel size \(K\), with a stride \(S\). The output matrix is given by</p>
+\[\begin{align}
+  Y_{cij} = \text{Pool} (X_{c, Si:Si+k, Sj:Sj+k})
+\end{align}\]
+<p>where the function \(\text{Pool}(\cdot)\) can be \(\max(\cdot)\) or \(\text{mean}(\cdot)\)</p>
+<p>The backpropagate the error gradient \(\partial \mathcal{L}/\partial Y\) to \(\partial \mathcal{L}/\partial X\),</p>
+\[\begin{align}
+  \frac{\partial \mathcal{L}}{\partial X_{cpq}} &amp;=
+    \sum_i \sum_j
+    \frac{\partial \mathcal{L}}{\partial Y_{cij}}
+    \frac{\partial Y_{cij}}{\partial X_{cpq}}
+\end{align}\]
+\[\begin{align}
+  \frac{\partial Y^{\text{max-pool}}_{cij}}{\partial X_{cpq}} &amp;=
+    \begin{cases}
+    1, Y_{cij} = X_{cpq} \\
+    0, \text{otherwise}
+    \end{cases}
+\end{align}\]
+\[\begin{align}
+  \frac{\partial Y^{\text{average-pool}}_{cij}}{\partial X_{cpq}} &amp;=
+    \frac{X_{cpq}}{K^2}
+\end{align}\]
+<p>where \(c\) is the channel index, \(i = 0..N_x^{(i)}\), \(j = 0..N_y^{(i)}\), \(p = 0..N_x^{(i-1)}\), \(q = 0..N_y^{(i-1)}\).</p>
 <h4 class='section_entry' id='2.1.4.'>2.1.4. Network architecture</h4>
 <p>ConvNets are stacks of convolutional, activation, pooling, and fully-connected (FC) layers. A traditional architecture lookes like </p>
 \[\begin{align}
