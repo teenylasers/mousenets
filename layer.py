@@ -383,7 +383,7 @@ class ConvLayer(Layer):
           sub_x = xp[:,
                      xi*self.s:xi*self.s+self.k,
                      yi*self.s:yi*self.s+self.k]
-          y[ci, xi, yi] = np.sum(sub_x * w[ci])
+          y[ci, xi, yi] = np.sum(sub_x * w[ci]) + b[ci]
 
     # Save results if needed
     if save:
@@ -410,8 +410,8 @@ class ConvLayer(Layer):
               for yi in range(self.nyo): # output y index
                 dLdw[ci, nci, kxi, kyi] += dLdy[ci, xi, yi] * \
                   self.xp[nci,
-                          self.s * xi + kxi - 1,
-                          self.s * yi + kyi - 1]
+                          self.s * xi + kxi,
+                          self.s * yi + kyi]
 
     # dLdb = (ci * 1)
     dLdb = np.zeros((self.c, 1))
@@ -466,14 +466,16 @@ class ConvLayer(Layer):
                   / 2.0 / kEpsilonNumericalGrad
           g[cii, xii, yii] = np.sum(dLdy * dydx)
 
-    # Print output.
-    print("Analytical dLdx = \n%r" % dLdx)
-    print("Numerical dLdx = \n%r" % g)
-    print("Max (analytical - numerical) error = %r" % np.max(dLdx - g))
-    print("Min (analytical - numerical) error = %r" % np.min(dLdx - g))
-
     # Return check results
-    return np.max(np.square(g-dLdx)) < kAllowNumericalErr
+    res = np.max(np.square(g-dLdx)) < kAllowNumericalErr and \
+      np.sum(g) != 0 and np.sum(dLdx) != 0
+    if not res:
+      print('Analytical dLdx = \n%r' % dLdx)
+      print('Numerical dLdx = \n%r' % g)
+      print('Max (analytical - numerical) error = %r' % np.max(dLdx - g))
+      print('Min (analytical - numerical) error = %r' % np.min(dLdx - g))
+      print('Error: %s check dLdx gradient failed.' % self.__class__)
+    return res
 
 
   def _check_gradient_dLdw(self, dLdy, dLdw, dLdb):
@@ -504,19 +506,24 @@ class ConvLayer(Layer):
               / 2.0 / kEpsilonNumericalGrad
       gb[ci] = np.sum(dLdy * dydb)
 
-    # Print output
-    print("Analytical dLdw = \n%r" % dLdw)
-    print("Numerical dLdw = \n%r" % gw)
-    print("Max (analytical - numerical) error = %r" % np.max(dLdw - gw))
-    print("Min (analytical - numerical) error = %r" % np.min(dLdw - gw))
-    print("Analytical dLdb = \n%r" % dLdb)
-    print("Numerical dLdb = \n%r" % gb)
-    print("Max (analytical - numerical) error = %r" % np.max(dLdb - gb))
-    print("Min (analytical - numerical) error = %r" % np.min(dLdb - gb))
-
     # Return check results
-    return (np.max(np.square(gw-dLdw)) < kAllowNumericalErr) and \
-      (np.max(np.square(gb-dLdb)) < kAllowNumericalErr)
+    dLdw_res = (np.max(np.square(gw-dLdw)) < kAllowNumericalErr)
+    if not dLdw_res:
+      print('Analytical dLdw = \n%r' % dLdw)
+      print('Numerical dLdw = \n%r' % gw)
+      print('Max (analytical - numerical) error = %r' % np.max(dLdw - gw))
+      print('Min (analytical - numerical) error = %r' % np.min(dLdw - gw))
+      print('Error: %s check dLdw gradient failed.' % self.__class__)
+
+    dLdb_res = (np.max(np.square(gb-dLdb)) < kAllowNumericalErr)
+    if not dLdb_res:
+      print('Analytical dLdb = \n%r' % dLdb)
+      print('Numerical dLdb = \n%r' % gb)
+      print('Max (analytical - numerical) error = %r' % np.max(dLdb - gb))
+      print('Min (analytical - numerical) error = %r' % np.min(dLdb - gb))
+      print('Error: %s check dLdb gradient failed.' % self.__class__)
+
+    return dLdw_res and dLdb_res
 
 
 class ActivationLayer(Layer):

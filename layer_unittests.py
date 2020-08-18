@@ -37,7 +37,7 @@ class DenseLayerTest(unittest.TestCase):
         n = 2
         x = np.array([1.5, 2.5])
         w = np.arange(6).reshape(2,3) * 0.1
-        dense_layer = DenseLayer(nx, n, "sigmoid", w)
+        dense_layer = DenseLayer(nx, n, 'sigmoid', w)
         y = np.array([1, 0])
 
         # Run forward pass to check sigmoid function
@@ -55,7 +55,7 @@ class DenseLayerTest(unittest.TestCase):
         n = 2
         x = np.array([1.5, 2.5])
         w = np.arange(6).reshape(2,3) * 0.1
-        dense_layer = DenseLayer(nx, n, "softmax", w)
+        dense_layer = DenseLayer(nx, n, 'softmax', w)
         y = np.array([1, 0])
 
         # Run forward pass to check softmax function
