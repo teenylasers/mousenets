@@ -296,7 +296,7 @@ class ConvLayer(Layer):
     assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0 \
            and isinstance(nc, int) and nc > 0)
     assert(isinstance(k, int) and k > 0 and isinstance(c, int) and c > 0)
-    assert(isinstance(s, int) and s > 0 and isinstance(p, int) and p > 0)
+    assert(isinstance(s, int) and s > 0 and isinstance(p, int) and p >= 0)
 
     self.nx = nx
     self.ny = ny
@@ -308,6 +308,9 @@ class ConvLayer(Layer):
 
     self.nxo = int((nx + 2*p - k)/s + 1)
     self.nyo = int((ny + 2*p - k)/s + 1)
+
+    assert(self.nxo > 0 and self.nyo > 0), \
+      'self.nxo = %d, self.nyo = %d' % (self.nxo, self.nyo)
 
     # Initialize kernel and bias
     if w is None:
@@ -428,15 +431,15 @@ class ConvLayer(Layer):
           for xoi in range(self.nxo): # output x index
             for yoi in range(self.nyo): # output y index
               for ci in range(self.c):
-                if (xi + 1 - self.s * xoi < self.k) and \
-                   (xi + 1 - self.s * xoi >= 0) and \
-                   (yi + 1 - self.s * yoi < self.k) and \
-                   (yi + 1 - self.s * yoi >= 0):
+                if (xi + self.p - self.s * xoi < self.k) and \
+                   (xi + self.p - self.s * xoi >= 0) and \
+                   (yi + self.p - self.s * yoi < self.k) and \
+                   (yi + self.p - self.s * yoi >= 0):
                   dLdx[nci, xi, yi] += dLdy[ci, xoi, yoi] * \
                     self.w[ci,
                            nci,
-                           xi + 1 - self.s * xoi,
-                           yi + 1 - self.s * yoi]
+                           xi + self.p - self.s * xoi,
+                           yi + self.p - self.s * yoi]
 
     # Save results if needed
     if save:

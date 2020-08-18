@@ -291,7 +291,7 @@ To backpropagate the loss gradient @m{\partial \mathcal{L} / \partial H^{(i)}} t
     &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        \frac{\partial H^{(i)}_{cij}}{\partial W^{(i)}_{cpqr}} \nonumber \\
     &= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
-       X^{(i-1)}_{Si+p-1, Sj+q-1, r}
+       X^{(i-1)}_{Si+p-P, Sj+q-P, r}
 }
 @M{
   \frac{\partial \mathcal{L}}{\partial b^{(i)}_c}
@@ -302,7 +302,7 @@ To backpropagate the loss gradient @m{\partial \mathcal{L} / \partial H^{(i)}} t
 }
 To get @m{\partial \mathcal{L} / \partial X^{(i-1)}}, we rewrite the indices of @eqref{conv_layer}
 @M{
-  H^{(i)}_{cij} = \sum_{l} \sum_{m} \sum_{r} W^{(i)}_{c, l+1-Si, m+1-Sj, r} X^{(i-1)}_{lmr} + b^{(i)}_c
+  H^{(i)}_{cij} = \sum_{l} \sum_{m} \sum_{r} W^{(i)}_{c, l+P-Si, m+P-Sj, r} X^{(i-1)}_{lmr} + b^{(i)}_c
 }
 then
 @M{

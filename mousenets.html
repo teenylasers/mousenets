@@ -369,7 +369,7 @@ tt {
     &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        \frac{\partial H^{(i)}_{cij}}{\partial W^{(i)}_{cpqr}} \nonumber \\
     &amp;= \sum_i \sum_j \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
-       X^{(i-1)}_{Si+p-1, Sj+q-1, r}
+       X^{(i-1)}_{Si+p-P, Sj+q-P, r}
 \end{align}\]
 \[\begin{align}
   \frac{\partial \mathcal{L}}{\partial b^{(i)}_c}
@@ -380,7 +380,7 @@ tt {
 \end{align}\]
 <p>To get \(\partial \mathcal{L} / \partial X^{(i-1)}\), we rewrite the indices of \eqref{eq:conv_layer} </p>
 \[\begin{align}
-  H^{(i)}_{cij} = \sum_{l} \sum_{m} \sum_{r} W^{(i)}_{c, l+1-Si, m+1-Sj, r} X^{(i-1)}_{lmr} + b^{(i)}_c
+  H^{(i)}_{cij} = \sum_{l} \sum_{m} \sum_{r} W^{(i)}_{c, l+P-Si, m+P-Sj, r} X^{(i-1)}_{lmr} + b^{(i)}_c
 \end{align}\]
 <p>then </p>
 \[\begin{align}

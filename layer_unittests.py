@@ -1,4 +1,4 @@
-import unittest
+import random, unittest
 import numpy as np
 from constants import *
 from layer import *
@@ -70,6 +70,19 @@ class DenseLayerTest(unittest.TestCase):
 
 class ConvLayerTest(unittest.TestCase):
 
+
+    def _generate_random_layer_params(self):
+
+        nx = random.choice([8, 16, 32])
+        ny = random.choice([8, 16, 32])
+        nc = random.choice([1, 2, 3, 4, 5, 6, 7, 8])
+        k = random.choice([1, 2, 3, 4])
+        c = random.choice([2, 3, 4, 5, 6])
+        s = random.choice([1, 2, 3])
+        p = random.choice([0, 1, 2, 3])
+        return (nx, ny, nc, k, c, s, p)
+
+
     def _generate_testcase(self, nx, ny, nc, k, c, s, p):
 
         # Initiate a ConvLayer
@@ -92,14 +105,53 @@ class ConvLayerTest(unittest.TestCase):
 
 
     def test_conv_layer(self):
+
+        # nx, ny, nc = 8, 8, 3
+        # k, c = 2, 2
+        # s, p = 1, 1
+
+        num_tests = 5
+        for test in range(num_tests):
+            nx, ny, nc, k, c, s, p = self._generate_random_layer_params()
+            (layer, x, w, b, y) = self._generate_testcase(nx, ny, nc, k, c, s, p)
+            output = layer.forward_pass(x, save=True, w=w, b=b)
+            dLdy = y - output
+            assert(layer.check_gradient(dLdy))
+
+
+
+class ActivationLayerTest(unittest.TestCase):
+
+
+    def _generate_random_layer_params(self):
+
+        nx = random.choice([8, 16, 32])
+        ny = random.choice([8, 16, 32])
+        nc = random.choice([1, 2, 3, 4, 5, 6, 7, 8])
+        return (nx, ny, nc)
+
+
+    def _generate_testcase(self, nx, ny, nc, activation):
+
+        # Initiate an ActivationLayer
+        layer = ActivationLayer(nx, ny, nc, activation)
+
+        # Generate a random input matrix
+        x = np.random.rand(nc, nx, ny)
+
+        # Generate a ranom expected output
+        y = np.random.rand(nc, nx, ny)
+
+        # Return the test case
+        return (layer, x, y)
+
+
+    def test_activation_layer(self):
         nx, ny, nc = 8, 8, 3
-        k, c = 2, 2
-        s, p = 1, 1
-        (layer, x, w, b, y) = self._generate_testcase(nx, ny, nc, k, c, s, p)
-        output = layer.forward_pass(x, save=True, w=w, b=b)
+        layer, x, y = self._generate_testcase(nx, ny, nc)
+        output = layer.forward_pass(x, save=True)
         dLdy = y - output
         assert(layer.check_gradient(dLdy))
-
 
 
 if __name__ == '__main__':
