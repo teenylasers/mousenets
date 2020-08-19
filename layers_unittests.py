@@ -1,7 +1,7 @@
 import random, unittest
 import numpy as np
 from constants import *
-from layer import *
+from layers import *
 
 
 class DenseLayerTest(unittest.TestCase):
