@@ -1,5 +1,5 @@
 import numpy as np
-import abc
+import abc, itertools
 
 from constants import *
 
@@ -37,7 +37,7 @@ class Layer(object):
 
 
   @abc.abstractmethod
-  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb=None):
+  def _check_gradient_dLdw(self, dLdy, dLdw=None, dLdb=None):
     """Check the backprop analytical gradient dLdw (and dLdb for some layer
     implementations) against the equivalent numerical calculation."""
     return
@@ -459,15 +459,13 @@ class ConvLayer(Layer):
 
     # g = numerical gradient
     g = np.zeros(x_dims)
-    for cii in range(self.nc):
-      for xii in range(self.nx):
-        for yii in range(self.ny):
-          x_eps = np.zeros(x_dims)
-          x_eps[cii, xii, yii] = kEpsilonNumericalGrad
-          dydx = (self.forward_pass(self.x + x_eps, save=False) - \
-                  self.forward_pass(self.x - x_eps, save=False))  \
-                  / 2.0 / kEpsilonNumericalGrad
-          g[cii, xii, yii] = np.sum(dLdy * dydx)
+    for cii, xii, yii in itertools.product(*[range(it) for it in x_dims]):
+      x_eps = np.zeros(x_dims)
+      x_eps[cii, xii, yii] = kEpsilonNumericalGrad
+      dydx = (self.forward_pass(self.x + x_eps, save=False) - \
+              self.forward_pass(self.x - x_eps, save=False))  \
+              / 2.0 / kEpsilonNumericalGrad
+      g[cii, xii, yii] = np.sum(dLdy * dydx)
 
     # Return check results
     res = np.max(np.square(g-dLdx)) < kAllowNumericalErr and \
@@ -545,13 +543,16 @@ class ActivationLayer(Layer):
   # f = the activation function
   # dfdx = the derivative of the activation function
 
-  # dLdx = backpropagation from ddy to dLdx
+  # dLdx = backpropagation from dLdy to dLdx
 
   def __init__(self, nx, ny, nc, activation):
 
     assert(isinstance(nx, int) and nx > 0), 'nx should be an integer and >0.'
     assert(isinstance(ny, int) and ny > 0), 'ny should be an integer and >0.'
     assert(isinstance(nc, int) and nc > 0), 'nc should be an integer and >0.'
+    self.nx = nx
+    self.ny = ny
+    self.nc = nc
 
     self.activation = activation
     if self.activation == 'relu':
@@ -569,7 +570,8 @@ class ActivationLayer(Layer):
     assert(w is None and b is None), \
       'w and b should be None, they are N/A for this layer.'
     assert(isinstance(x, np.ndarray)), 'x should be a numpy array.'
-    assert(x.shape == (nc, nx, ny)), 'x should have the shape %r.' % x.shape
+    assert(x.shape == (self.nc, self.nx, self.ny)), \
+      'x should have the shape %r.' % x.shape
     y = self.f(x)
 
     if save:
@@ -585,6 +587,36 @@ class ActivationLayer(Layer):
     if save:
       self.dLdy = dLdy
     return dLdx, None, None
+
+
+  def _check_gradient_dLdx(self, dLdy, dLdx):
+
+    x_dims = self.x.shape
+
+    # g = numerical gradient
+    g = np.zeros(x_dims)
+    for ci, xi, yi in itertools.product(*[range(it) for it in x_dims]):
+      x_eps = np.zeros(x_dims)
+      x_eps[ci, xi, yi] = kEpsilonNumericalGrad
+      dydx = (self.forward_pass(self.x + x_eps, save=False) - \
+                  self.forward_pass(self.x - x_eps, save=False))  \
+                  / 2.0 / kEpsilonNumericalGrad
+      g[ci, xi, yi] = np.sum(dLdy * dydx)
+
+    # Return check results
+    res = np.max(np.square(g-dLdx)) < kAllowNumericalErr and \
+      np.sum(g) != 0 and np.sum(dLdx) != 0
+    if not res:
+      print('Analytical dLdx = \n%r' % dLdx)
+      print('Numerical dLdx = \n%r' % g)
+      print('Max (analytical - numerical) error = %r' % np.max(dLdx - g))
+      print('Min (analytical - numerical) error = %r' % np.min(dLdx - g))
+      print('Error: %s check dLdx gradient failed.' % self.__class__)
+    return res
+
+
+  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb):
+    return True
 
 
   def _f_relu(self, x):
@@ -619,7 +651,7 @@ class PoolingLayer(Layer):
 
     assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0 \
            and isinstance(nc, int) and nc > 0)
-    assert(isinstance(k, int) and k > 0 and isinstance(c, int) and s > 0)
+    assert(isinstance(k, int) and k > 0 and isinstance(s, int) and s > 0)
 
     self.nx = nx
     self.ny = ny
@@ -627,8 +659,8 @@ class PoolingLayer(Layer):
     self.k = k
     self.s = s
 
-    self.nxo = (nx - k)/s + 1
-    self.nyo = (ny - k)/s + 1
+    self.nxo = int((nx - k)/s + 1)
+    self.nyo = int((ny - k)/s + 1)
 
     self.operator = operator
     if self.operator == 'max':
@@ -655,8 +687,10 @@ class PoolingLayer(Layer):
     for ci in range(self.nc):
       for xi in range(self.nxo):
         for yi in range(self.nyo):
-          sub_x = x[ci, xi*s:xi*s+k, yi*s:yi*s+k]
-          y[ci, xi, yi] = self.f(x)
+          sub_x = x[ci,
+                    xi * self.s : xi * self.s + self.k,
+                    yi * self.s : yi * self.s + self.k]
+          y[ci, xi, yi] = self.f(sub_x)
 
     # If save
     if save:
@@ -672,16 +706,22 @@ class PoolingLayer(Layer):
 
     # dLdy = (nc, nxo, nyo)
     # dLdx = (nc, nx, ny)
-    dLdx = np.zeros(self.nc, self.nx, self.ny)
+    dLdx = np.zeros(self.x.shape)
     for ci in range(self.nc):
       for xii in range(self.nx):
         for yii in range(self.ny):
           for xoi in range(self.nxo):
             for yoi in range(self.nyo):
-              sx = self.x[ci,
-                          xoi * self.s + self.k,
-                          yoi * self.s + self.k]
-              dLdx[ci, xii, yii] += dLdy[ci, xoi, yoi] * self.dfdx(sx)
+              if (xii - self.s * xoi < self.k) and \
+                 (xii - self.s * xoi >= 0) and \
+                 (yii - self.s * yoi < self.k) and \
+                 (yii - self.s * yoi >= 0):
+                sx = self.x[ci,
+                            xoi * self.s : xoi * self.s + self.k,
+                            yoi * self.s : yoi * self.s + self.k]
+                dLdx[ci, xii, yii] += dLdy[ci, xoi, yoi] * \
+                  self.dfdx(sx)[xii - xoi * self.s,
+                                yii - yoi * self.s]
 
     # If save
     if save:
@@ -689,6 +729,36 @@ class PoolingLayer(Layer):
 
     # Return
     return dLdx, None, None
+
+
+  def _check_gradient_dLdx(self, dLdy, dLdx):
+
+    x_dims = self.x.shape
+
+    # g = numerical gradient
+    g = np.zeros(x_dims)
+    for ci, xi, yi in itertools.product(*[range(it) for it in x_dims]):
+      x_eps = np.zeros(x_dims)
+      x_eps[ci, xi, yi] = kEpsilonNumericalGrad
+      dydx = (self.forward_pass(self.x + x_eps, save=False) - \
+                  self.forward_pass(self.x - x_eps, save=False))  \
+                  / 2.0 / kEpsilonNumericalGrad
+      g[ci, xi, yi] = np.sum(dLdy * dydx)
+
+    # Return check results
+    res = np.max(np.square(g-dLdx)) < kAllowNumericalErr and \
+      np.sum(g) != 0 and np.sum(dLdx) != 0
+    if not res:
+      print('Analytical dLdx = \n%r' % dLdx)
+      print('Numerical dLdx = \n%r' % g)
+      print('Max (analytical - numerical) error = %r' % np.max(dLdx - g))
+      print('Min (analytical - numerical) error = %r' % np.min(dLdx - g))
+      print('Error: %s check dLdx gradient failed.' % self.__class__)
+    return res
+
+
+  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb):
+    return True
 
 
   def _f_max(self, sx):
@@ -713,4 +783,4 @@ class PoolingLayer(Layer):
   def _dfdx_average(self, sx):
     """Return the gradient of the average pooling functions for an input matrix
     sx, where sx is a submatrix of x and is the size of the pooling kernel."""
-    return sx * (1/self.k/self.k)
+    return np.ones(sx.shape) * (1/self.k/self.k)

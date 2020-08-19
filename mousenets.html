@@ -354,11 +354,11 @@ tt {
 <p>Note that the same \(K \times K\) kernel is shared across the entire input image for that filter layer. During backpropagation, every neuron in the volume will compute the gradient for its kernel weights, they are then averaged to update the single kernel.</p>
 <p>Using similar notations as the fully-connected layer, we call the kernel the weight matrix \(W\), the output of the convolutional layer \(H\). For the \(i\)-th layer,</p>
 \[\begin{align}
-  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}
+  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{pqr} X^{(i-1)}_{Si+p-P, Sj+q-P, r} + b^{(i)}
 \end{align}\]
 <p>where \(b\) is the bias, and this convolution is repeated for the \(c = 1..C^{(i)}\) kernels in this layer. The complete convolution for in this layer is then</p>
 \[\begin{align} \label{eq:conv_layer}
-  H^{(i)}_{cij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{cpqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}_c
+  H^{(i)}_{cij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{cpqr} X^{(i-1)}_{Si+p-P, Sj+q-P, r} + b^{(i)}_c
 \end{align}\]
 <p><b> Locally-connected layer</b></p>
 <p>Sometimes it does not make sense to use the same convolutional kernel across the entire image. When different kernel weights are used in different regions of the image, the layer is typically called a <em>locally-connected layer</em>.</p>
@@ -388,7 +388,7 @@ tt {
     &amp;= \sum_i \sum_j \sum_c \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        \frac{\partial H^{(i)}_{cij}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
     &amp;= \sum_i^{N_x^{(i)}} \sum_j^{N_y^{(i)}} \sum_c^{C^{(i)}} \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
-       W^{(i)}_{c,l+1-Si,m+1-Sj,r}
+       W^{(i)}_{c,l+P-Si,m+P-Sj,r}
 \end{align}\]
 <h4 class='section_entry' id='2.1.2.'>2.1.2. ReLU layer</h4>
 \[\begin{align}

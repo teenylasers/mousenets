@@ -268,12 +268,12 @@ Note that the same @m{K \times K} kernel is shared across the entire input image
 Using similar notations as the fully-connected layer, we call the kernel the weight matrix @m{W}, the output of the convolutional layer @m{H}. For the @m{i}-th layer,
 
 @M{
-  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{pqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}
+  H^{(i)}_{ij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{pqr} X^{(i-1)}_{Si+p-P, Sj+q-P, r} + b^{(i)}
 }
 where @m{b} is the bias, and this convolution is repeated for the @m{c = 1..C^{(i)}} kernels in this layer. The complete convolution for in this layer is then
 
 @M{ \label{eq:conv_layer}
-  H^{(i)}_{cij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{cpqr} X^{(i-1)}_{Si+p-1, Sj+q-1, r} + b^{(i)}_c
+  H^{(i)}_{cij} = \sum_{p=1}^K \sum_{q=1}^K \sum_{r=1}^{C^{(i-1)}} W^{(i)}_{cpqr} X^{(i-1)}_{Si+p-P, Sj+q-P, r} + b^{(i)}_c
 }
 
 
@@ -310,7 +310,7 @@ then
     &= \sum_i \sum_j \sum_c \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
        \frac{\partial H^{(i)}_{cij}}{\partial X^{(i-1)}_{lmr}} \nonumber \\
     &= \sum_i^{N_x^{(i)}} \sum_j^{N_y^{(i)}} \sum_c^{C^{(i)}} \frac{\partial \mathcal{L}}{\partial H^{(i)}_{cij}}
-       W^{(i)}_{c,l+1-Si,m+1-Sj,r}
+       W^{(i)}_{c,l+P-Si,m+P-Sj,r}
 }
 
 
