@@ -558,6 +558,12 @@ class ActivationLayer(Layer):
     if self.activation == 'relu':
       self.f = self._f_relu
       self.dfdx = self._dfdx_relu
+    elif self.activation == 'sigmoid':
+      self.f = self._f_sigmoid
+      self.dfdx = self._dfdx_sigmoid
+    elif self.activation == 'softmax':
+      self.f = self._f_softmax
+      self.dfdx = self._dfdx_softmax
     else:
       assert False, "Error: activation function %s is not implemented." % \
         self.activation
@@ -620,13 +626,25 @@ class ActivationLayer(Layer):
 
 
   def _f_relu(self, x):
-    """Implement ReLU function, return ReLU(x)"""
+    """Implement ReLU function, return ReLU(x)."""
     return x * (x > 0)
 
 
   def _dfdx_relu(self, x):
-    """Implement the gradient of ReLU function, return del ReLU(x)"""
+    """Implement the gradient of ReLU function, return del ReLU(x)."""
     return (x > 0) * 1
+
+
+  def _f_sigmoid(self, x):
+    """Implement the sigmoid function, return sigmoid(x)."""
+    return 1 / (1 + np.exp(-x))
+
+
+  def _dfdx_sigmoid(self, x):
+    """Implement the gradient of sigmoid function, return del sigmoid(x)."""
+    f_x = self._f_sigmoid(x)
+    return (1 - f_x)*f_x
+
 
 
 class PoolingLayer(Layer):

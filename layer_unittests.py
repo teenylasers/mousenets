@@ -156,6 +156,17 @@ class ActivationLayerTest(unittest.TestCase):
             assert(layer.check_gradient(dLdy))
 
 
+    def test_sigmoid_layer(self):
+        num_tests = 5
+        for test in range(num_tests):
+            print('Sigmoid layer test %d.' % test)
+            nx, ny, nc = self._generate_random_layer_params()
+            layer, x, y = self._generate_testcase(nx, ny, nc, 'sigmoid')
+            output = layer.forward_pass(x, save=True)
+            dLdy = y - output
+            assert(layer.check_gradient(dLdy))
+
+
 
 class PoolingLayerTest(unittest.TestCase):
 
