@@ -33,17 +33,15 @@ class MLP:
       l.reset_cache()
 
 
-  def add_layer(self, n, activation, w=None):
+  def add_layer(self, n, activation, w=None, b=None):
     """Augment the MLP by a new layer of width n."""
     # Get the last layer's output dimension.
     if len(self.layers) == 0:
       in_dimension = self.nx0
     else:
       in_dimension = self.layers[-1].get_width()
-    # Automatically extend n by +1 for bias term.
-    in_dimension += 1
     # Append the new layer.
-    self.layers.append(DenseLayer(in_dimension, n, activation, w))
+    self.layers.append(DenseLayer(in_dimension, n, activation, w, b))
 
 
   def define_loss_function(self, loss_fxn_type):
@@ -72,8 +70,6 @@ class MLP:
     """Perform forward pass, with options to update the state of the MLP."""
     x = x0
     for l in self.layers:
-      # Append +1 for the bias term.
-      x = np.append(x, 1)
       # Run forward pass
       x = l.forward_pass(x, save)
 
@@ -92,13 +88,13 @@ class MLP:
     gradient with respect to the input to that layer."""
     # Append a 1, because the for-loop expects every layer's dLdx to contain a
     # bias term as the last element.
-    dLdx = np.append(dLdxn, 1)
+    dLdx = dLdxn
     for l in reversed(self.layers[to_layer:]):
       # The last element of dLdx is the bias term, need not be propagated to the
       # previous layer
-      dLdx, dLdw, dLdb = l.backprop(dLdx[:-1], save)
+      dLdx, dLdw, dLdb = l.backprop(dLdx, save)
 
-    return dLdx, dLdw
+    return dLdx, dLdw, dLdb
 
 
   def update_weights(self, batch_size):
@@ -136,35 +132,40 @@ class MLP:
     else:
       assert False, 'Cannot calculate dLdw for layer number %d.' % i
     x = self.layers[i].x
-    w = self.layers[i].get_weights()
+    w = self.layers[i].w
+    b = self.layers[i].b
     w_dims = w.shape
 
-    # Calculate g, the numerical gradient
-    g = np.zeros(w_dims)
+    # Calculate gw, the numerical gradient for weights
+    assert len(w_dims)==2, 'w_dim != 2 is not yet implemented.'
+    gw = np.zeros(w_dims)
     for j in range(w_dims[0]):
       for k in range(w_dims[1]):
         w_nudge = np.zeros(w_dims)
         w_nudge[j][k] = kEpsilonNumericalGrad
         w_nudge_up = w + w_nudge
         w_nudge_down = w - w_nudge
-        x_nudge_up = self.layers[i].forward_pass(x, save=False, w=w_nudge_up)
-        x_nudge_down = self.layers[i].forward_pass(x, save=False, w=w_nudge_down)
+        x_nudge_up = self.layers[i].forward_pass(
+          x, save=False, w=w_nudge_up)
+        x_nudge_down = self.layers[i].forward_pass(
+          x, save=False, w=w_nudge_down)
         for l in self.layers[i+1::]:
           x_nudge_up = l.forward_pass(x_nudge_up, save=False)
           x_nudge_down = l.forward_pass(x_nudge_down, save=False)
-        g[j][k] = (self.evaluate_loss(x_nudge_up, y) - self.evaluate_loss(x_nudge_down, y)) \
-          / 2.0 / kEpsilonNumericalGrad
+        gw[j][k] = (self.evaluate_loss(x_nudge_up, y) - \
+                    self.evaluate_loss(x_nudge_down, y)) \
+                    / 2.0 / kEpsilonNumericalGrad
 
     # Calculate dLdw, the analytical gradient from backprop
-    dLdx, dLdw = self._backprop_plus(dLdxn, save=False, to_layer=i)
+    dLdx, dLdw, dLdb = self._backprop_plus(dLdxn, save=False, to_layer=i)
 
     # Compare numerical and analytical gradients
-    gradient_diff = g - dLdw
+    gradient_diff = gw - dLdw
     if np.all(abs(gradient_diff) < kAllowNumericalErr):
       return True
     else:
       print('MLP._check_gradient_from_layer_dLdw, numerical gradient =')
-      print(g)
+      print(gw)
       print('MLP._check_gradient_from_layer_dLdw, backpropagated gradient =')
       print(dLdw)
       return False
@@ -177,7 +178,7 @@ class MLP:
       i = i - 1
     else:
       assert False, 'Cannot calculate dLdx for layer number %d.' % i
-    x_dim = self.layers[i].get_input_size()
+    x_dim = self.layers[i].get_input_size() + 1 # +1 for the bias term
     x = self.layers[i].x
 
     # Calculate g, the numerical gradient
@@ -192,9 +193,10 @@ class MLP:
         x_nudge_down = l.forward_pass(x_nudge_down, save=False)
       g[j] = (self.evaluate_loss(x_nudge_up, y) - self.evaluate_loss(x_nudge_down, y)) \
         / 2.0 / kEpsilonNumericalGrad
+    g = g[:-1] # Discard the last element, which is the gradient on the bias term.
 
     # Calculate dLdx, the analytical gradient from backprop
-    dLdx, dLdw = self._backprop_plus(dLdxn, save=False, to_layer=i)
+    dLdx, dLdw, dLdb = self._backprop_plus(dLdxn, save=False, to_layer=i)
 
     # Compare numerical and analytical gradients
     gradient_diff = g - dLdx
@@ -273,118 +275,3 @@ class MLP:
       print('MLP.print_weights() for the %d-th layer (i=%d) =\n' % \
             (len(self.layers)-1, i))
       print(self.layers[i-1].get_weights())
-
-
-class NetTrainer:
-  """
-  Train a neural net.
-  """
-
-  def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None):
-    """Train a neural net nn using batched stochastic gradient descent, return
-    the trained neural net."""
-    # eta is the learning rate.
-
-    # Check input argument consistency
-    assert(isinstance(nn, MLP)), \
-      'Input neural net nn is not an instance of MLP class.'
-
-    assert(x_train.shape[0] == y_train.shape[0]), \
-      'x_train and y_train should have the same number of samples.'
-
-    input_width = nn.get_layer_width(0)
-    assert(x_train.shape[1] == input_width), \
-      'x_train data has dimension %d, inconsistent with the neural net\'s input dimension %d.' \
-      % (x_train.shape[1], input_width)
-
-    output_width = nn.get_layer_width(-1)
-    assert(y_train.shape[1] == output_width), \
-      'y_train data has dimension %d, inconsistent with the neural net\'s output dimension %d.' \
-      % (y_train.shape[1], output_width)
-
-    num_samples = x_train.shape[0]
-    assert(batch_size <= num_samples), 'batch_size [%d] > number of samples in x/y_train [%d].' \
-      % (batch_size, num_samples)
-
-    # Initialize loss_history
-    loss_history = []
-
-    # Initialize learning rate
-    eta = self._get_etas(epochs, eta)
-
-    # Do batched sgd
-    for i in range(epochs):
-      nn.reset_cache()
-      cumulative_loss = 0
-      cumulative_loss_gradient = np.zeros(output_width)
-      loss_grads = np.zeros((batch_size, output_width))
-
-      # Evaluate loss and loss gradient for a batch
-      for j in range(batch_size):
-        s = self._select_sample(j, num_samples)
-        res = nn.forward_pass(x_train[s])
-        cumulative_loss += nn.evaluate_loss(res, y_train[s])
-        loss_grad = nn.calculate_loss_gradient(res, y_train[s])
-        nn.backprop(loss_grad * eta[i])
-
-      # Train for this epoch
-      cumulative_loss = cumulative_loss / batch_size
-      nn.update_weights(batch_size)
-      #weights_before = nn.get_layer(1).get_weights()
-      #weights_after = nn.get_layer(1).get_weights()
-      #delta_w = weights_after - weights_before
-      #plt.imshow(delta_w)
-      #plt.show()
-
-      #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
-      loss_history.append(cumulative_loss)
-
-    return nn, loss_history
-
-
-  def _select_sample(self, count, num_samples):
-    """Helper function to select sample from num_samples."""
-    return np.random.randint(low=0, high=num_samples-1)
-
-
-  def _get_etas(self, epochs, eta):
-    assert(epochs>0), 'num epochs must be >0.'
-    if eta is None:
-      eta_init = 8
-      eta_prelim = [eta_init**(2**-n) for n in range(epochs)]
-      return [it if it > 1 else 1 for it in eta_prelim]
-    else:
-      return [eta]*epochs
-
-
-  def evaluate(self, nn, x_test, y_test):
-    """Evaluate the neural network nn against the test data set."""
-    assert(x_test.shape[0] == y_test.shape[0]), \
-      'x_test.shape = {}, y_test.shape = {}, inconsistent sizes.'\
-      .format(x_test.shape, y_test.shape)
-    num_tests = x_test.shape[0]
-    num_correct = 0
-    cumulative_loss = 0
-
-    # Check test samples
-    for i in range(num_tests):
-      res, loss = nn.classify_one_hot(x_test[i], y_test[i])
-      cumulative_loss += loss
-      if self._compare_results(res, y_test[i]):
-        num_correct += 1
-
-    # Compile total stats
-    cumulative_loss = cumulative_loss / num_tests
-    accuracy = num_correct * 1.0 / num_tests
-    return accuracy, cumulative_loss
-
-
-  def _compare_results(self, y0, y1):
-    """Helper function to compare 2 results, ignoring any formatting or data
-    type differences"""
-    # Currently only implemented for one-hot encoded classification output.
-    # Augment as needed.
-    y0 = y0.astype(int)
-    y1 = y1.astype(int)
-    return np.sum(y0)==np.sum(y1) and np.sum(y0) == 1 and \
-      np.where(y0==1) == np.where(y1==1)

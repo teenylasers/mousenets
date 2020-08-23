@@ -37,7 +37,7 @@ A multilayer perceptron (MLP) is a fully connected network that sequentially con
   H^{(i)} &= W^{(i)}X^{(i-1)} \\
   X^{(i)} &= F^{(i)}(H^{(i)})
 }
-for the @m{i}-th layer, where @m{X^{(i-1)}} is the output from the previous layer and the input to the current one, @m{W^{(i)}} is the weights matrix, and @m{F^{(i)}} is the activation function, typically sigmoid, ReLU, or softmax. A loss function is used to compare the MLP output @m{X^(n)} with the ground truth @m{Y} and quantify its @emph{goodness},
+for the @m{i}-th layer, where @m{X^{(i-1)}} is the output from the previous layer and the input to the current one, @m{W^{(i)}} is the weights matrix, and @m{F^{(i)}} is the activation function, typically sigmoid, ReLU, or softmax. A loss function is used to compare the MLP output @m{X^{(n)}} with the ground truth @m{Y} and quantify its @emph{goodness},
 
 @M{
   \mathcal{L}(X^{(n)}, Y) : \mathbb{R}^K \rightarrow \mathbb{R}

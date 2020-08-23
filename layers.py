@@ -19,6 +19,12 @@ class Layer(object):
     return
 
 
+  def update_weights(self, batch_size, dLdw, dLdb):
+    """Given a dLdw and the batch_size that accumulated it, update self.wb."""
+    self.w = self.w - self.dLdw / batch_size
+    self.b = self.b - self.dLdb / batch_size
+
+
   def check_gradient(self, dLdy):
     """Assume we have performed backprop to update self.dLdx and self.dLdw,
     check them against numerical calculations from the same dLdy."""
@@ -54,7 +60,7 @@ class DenseLayer(Layer):
   # n = layer width
   # x = input vector
   # nx = input vector length
-  # w = weights matrix
+  # w = weights matrix, (n+1) * nx
   # h = intermediate variable, w.dot(x)
   # y = output vector
 
@@ -65,7 +71,7 @@ class DenseLayer(Layer):
   # dLdx = backpropagation from dLdy to dLdx
   # dLdw = backpropagation from dLdy to dLdw
 
-  def __init__(self, nx, n, activation, w=None):
+  def __init__(self, nx, n, activation, w=None, b=None):
 
     assert(isinstance(n, int) and n > 0), 'n should be an integer and >0.'
     assert(isinstance(nx, int) and nx > 0), 'nx should be an integer and >0.'
@@ -83,13 +89,22 @@ class DenseLayer(Layer):
       print("Error: activation function %s is not implemented.",
             self.activation)
 
-    # Initialize w if not provided
+    # Initialize w and b if not provided
     if w is None:
       self.w = self._initialize_weights(self.n, self.nx)
     else:
       assert(w.shape == (self.n, self.nx)), \
         'User input w has the wrong dimensions {}'.format(w.shape)
       self.w = w
+    if b is None:
+      self.b = self._initialize_bias(self.nx)
+    else:
+      assert(b.shape == (self.n, 1)), \
+        'User input b has the wrong dimensions {}'.format(b.shape)
+      self.b = b
+
+    # Concatenate w and b to self.wb for forward_pass and backprop calculations
+    self.wb = self._concat_w_b(self.w, self.b)
 
     # Initialize/reset the remaining states of this layer: self.x, h, y, dLdx, dLdw
     self.reset_cache()
@@ -98,6 +113,11 @@ class DenseLayer(Layer):
   def _initialize_weights(self, n, m):
     """Initialize a weights matrix of dimensions (n x m)."""
     return np.random.rand(n, m) * 2 - 1
+
+
+  def _initialize_bias(self, n):
+    """Initialize a bias vector of dimensions (1 x n)."""
+    return np.random.rand(n, 1) * 2 - 1
 
 
   def reset_cache(self):
@@ -117,19 +137,25 @@ class DenseLayer(Layer):
 
     assert(isinstance(x, np.ndarray)), 'x should be a numpy array.'
     assert(len(x.shape)==1), 'x should be a vector.'
-    assert(x.shape[0]==self.nx), 'x should have length %d, not %d.' % \
-      (self.nx, x.shape[0])
-    if w is not None:
+    if w is not None or b is not None:
       assert(not save), \
-        'When user specifies a weights matrix w, cannot save the results to '\
-        'modify the layer.'
-    assert(b is None), "Bias is incorporated in the weight matrix, b is unused."
+        'When user specifies a weights matrix w and/or a bias vector b, cannot' \
+        ' save the results to modify the layer.'
 
+    # Apply user supplied w and b, if provided
     if w is None:
-      h = self.w.dot(x)
-    else:
-      h = w.dot(x)
+      w = self.w
+    if b is None:
+      b = self.b
+    wb = self._concat_w_b(w,b)
 
+    # Decide whether the input x already has the bias term attached.
+    if len(x) == self.nx:
+      x = np.append(x,1)
+    else:
+      assert len(x) == self.nx + 1
+
+    h = wb.dot(x)
     y = self.f(h)
 
     if save:
@@ -151,26 +177,44 @@ class DenseLayer(Layer):
     # dLdw = dydh * dLdy * dhdw.T
     # dLdx = dhdx.T * dydh * dLdy
 
-    # Do backprop
     dydh = self.dfdh(self.h)
+
+    # Backprop for dLdw (whose last row is dLdb)
     if len(self.x.shape) == 1:
       # numpy does not distinguish between row and column vectors, use np.outer
-      dLdw = np.outer(dydh @ dLdy, self.x.T)
+      dLdwb = np.outer(dydh @ dLdy, self.x.T)
     else:
-      dLdw = dydh @ dLdy @ self.x.T
-    dLdx = self.w.T @ dydh @ dLdy
+      assert False, 'Where to append 1 to x for bias, and does this work for 2D x?'
+      dLdwb = dydh @ dLdy @ self.x.T
+
+    # Split dLdwb into dLdw and dLdb to be consistent with the other layers
+    dLdw = dLdwb[:, :-1]
+    dLdb = dLdwb[:, -1:]
+
+    # Backprop for dLdx
+    dLdx = self.wb.T @ dydh @ dLdy
+    dLdx = dLdx[:-1] # The last term is for the bias, no need to backpropagate
+
+    # If cache the gradients
     if save:
       self.dLdx = dLdx
       self.dLdw = self.dLdw + dLdw
+      self.dLdb = self.dLdb + dLdb
       self.dLdy = dLdy # Cache dLdy for gradient checking
 
-    # Return (dLdx, dLdw) for the previous layer's backprop
-    return dLdx, dLdw, None
+    # Return (dLdx, dLdw, dLdb) for the previous layer's backprop
+    return dLdx, dLdw, dLdb
 
 
-  def update_weights(self, dLdw, batch_size):
-    """Given a dLdw and the batch_size that accumulated it, update self.w."""
-    self.w = self.w - self.dLdw / batch_size
+  def update_weights(self, batch_size, dLdw, dLdb):
+    super(DenseLayer, self).update_weights(batch_size, dLdw, dLdb)
+    self.wb = self._concat_w_b(self.w, self.b)
+
+
+  def _concat_w_b(self, w, b):
+    """Helper function to concatenate w matrix and b vector, so we can use a single
+    matrix operation for both w and b in forward_pass and backprop."""
+    return np.c_[w, b]
 
 
   def _check_gradient_dLdx(self, dLdy, dLdx):
@@ -200,27 +244,30 @@ class DenseLayer(Layer):
     return np.max(np.square(g-dLdx)) < kAllowNumericalErr
 
 
-  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb=None):
-
-    assert(dLdb is None), \
-      'DenseLayer does not have a separate dLdb, it is combined with dLdw.'
+  def _check_gradient_dLdw(self, dLdy, dLdw, dLdb):
 
     # dydw_j = [y_j(w + eps) - y_j(w - eps)] / (2*eps)
     # dLdw = \sum_j dLdy_j * dydw_j
 
     y_dims = self.y.shape
-    w_dims = self.w.shape
+    wb_dims = self.wb.shape
 
-    # g = numerical loss gradient
-    g = np.zeros(w_dims)
-    for wi in range(w_dims[0]):
-      for wj in range(w_dims[1]):
-        w_eps = np.zeros(w_dims)
-        w_eps[wi, wj] = kEpsilonNumericalGrad
-        dydw = (self.forward_pass(self.x, save=False, w = self.w + w_eps) - \
-                self.forward_pass(self.x, save=False, w = self.w - w_eps))  \
-                / 2.0 / kEpsilonNumericalGrad
-        g[wi, wj] = dLdy.dot(dydw)
+    # g = numerical loss gradient for weights and biases
+    g = np.zeros(wb_dims)
+    for wi in range(wb_dims[0]):
+      for wj in range(wb_dims[1]):
+        wb_eps = np.zeros(wb_dims)
+        wb_eps[wi, wj] = kEpsilonNumericalGrad
+        wb_nudge_up = self.wb + w_eps
+        wb_nudge_down = self.wb - w_eps
+        dydwb = (self.forward_pass(self.x, save=False,
+                                   w = wb_nudge_up[:,:-1],
+                                   b = wb_nudge_up[:,-1:]) - \
+                 self.forward_pass(self.x, save=False,
+                                   w = wb_nudge_down[:,:-1],
+                                   b = wb_nudge_down[:,-1:])) \
+                 / 2.0 / kEpsilonNumericalGrad
+        g[wi, wj] = dLdy.dot(dydwb)
 
     # Print output
     # print("Analytical dLdw = \n%r" % dLdw)
@@ -229,7 +276,10 @@ class DenseLayer(Layer):
     # print("Min (analytical - numerical) error = %r" % np.min(dLdw - g))
 
     # Return check results
-    return np.max(np.square(g-dLdw)) < kAllowNumericalErr
+    gw = g[:,:-1]
+    gb = g[:,-1]
+    return np.max(np.square(gw - dLdw)) < kAllowNumericalErr and \
+      np.max(np.square(gb - dLdb)) < kAllowNumericalErr
 
 
   def get_input_size(self):
@@ -238,10 +288,6 @@ class DenseLayer(Layer):
 
   def get_width(self):
     return self.n
-
-
-  def get_weights(self):
-    return self.w
 
 
   def _f_sigmoid(self, h):

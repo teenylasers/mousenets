@@ -36,19 +36,21 @@ class MLPTest(unittest.TestCase):
         n0 = 2
         n1 = 2
         mlp = MLP(input_dimension = n0, output_dimension = n1)
-        w = np.arange(6).reshape(2,3) * 0.1
-        mlp.add_layer(n1, 'sigmoid', w)
+        wb = np.arange(6).reshape(2,3) * 0.1
+        w = wb[:,:-1]
+        b = wb[:,-1:]
+        mlp.add_layer(n1, 'sigmoid', w, b)
         mlp.define_loss_function('cce')
         x0 = mlp.normalize_data(np.array([1.5, 2.5]))
         y = np.array([1, 0])
 
         # Check sigmoid
-        s = mlp.layers[0].forward_pass(np.append(x0,1), save=False)
-        assert(self._check_sigmoid(x0, mlp.get_layer(1).get_weights(), s))
+        s = mlp.layers[0].forward_pass(x0, save=False)
+        assert(self._check_sigmoid(x0, mlp.get_layer(1).wb, s))
 
         # Run forward pass once, check gradient
         x_out = mlp.forward_pass(x0)
-        assert(self._check_softmax(x0, mlp.get_layer(1).get_weights(), x_out))
+        assert(self._check_softmax(x0, mlp.get_layer(1).wb, x_out))
         loss = mlp.evaluate_loss(x_out, y)
         loss_grad = mlp.calculate_loss_gradient(x_out, y)
 
@@ -63,19 +65,21 @@ class MLPTest(unittest.TestCase):
         n0 = 2
         n1 = 2
         mlp = MLP(input_dimension = n0, output_dimension = n1)
-        w = np.arange(6).reshape(2,3) * 0.1
+        wb = np.arange(6).reshape(2,3) * 0.1
+        w = wb[:,:-1]
+        b = wb[:,-1:]
         mlp.add_layer(n1, 'softmax', w)
         mlp.define_loss_function('cce')
         x0 = mlp.normalize_data(np.array([1.5, 2.5]))
         y = np.array([1, 0])
 
         # Check sigmoid
-        s = mlp.layers[0].forward_pass(np.append(x0,1), save=False)
-        assert(self._check_softmax(x0, mlp.get_layer(1).get_weights(), s))
+        s = mlp.layers[0].forward_pass(x0, save=False)
+        assert(self._check_softmax(x0, mlp.get_layer(1).wb, s))
 
         # Run forward pass once, check gradient
         x_out = mlp.forward_pass(x0)
-        assert(self._check_softmax(x0, mlp.get_layer(1).get_weights(), x_out))
+        assert(self._check_softmax(x0, mlp.get_layer(1).wb, x_out))
         loss = mlp.evaluate_loss(x_out, y)
         loss_grad = mlp.calculate_loss_gradient(x_out, y)
 
