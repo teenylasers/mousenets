@@ -85,6 +85,9 @@ class DenseLayer(Layer):
     elif self.activation == "softmax":
       self.f = self._f_softmax
       self.dfdh = self._dfdh_softmax
+    elif self.activation == "relu":
+      self.f = self._f_relu
+      self.dfdh = self._dfdh_relu
     else:
       print("Error: activation function %s is not implemented.",
             self.activation)
@@ -97,7 +100,7 @@ class DenseLayer(Layer):
         'User input w has the wrong dimensions {}'.format(w.shape)
       self.w = w
     if b is None:
-      self.b = self._initialize_bias(self.nx)
+      self.b = self._initialize_bias(self.n)
     else:
       assert(b.shape == (self.n, 1)), \
         'User input b has the wrong dimensions {}'.format(b.shape)
@@ -316,6 +319,36 @@ class DenseLayer(Layer):
     return dfdh
 
 
+  def _f_relu(self, h):
+    """Evaluate the ReLU function for h."""
+    return h * (h > 0)
+
+
+  def _dfdh_relu(self, h):
+    """Evaluate the gradient of ReLU function at h."""
+    return np.diag((h > 0) * 1)
+
+
+
+class DenseLayer2D(DenseLayer):
+  """
+  A DenseLayer that accepts a 2D or 3D image as input. It reshapes the 2D image
+  into a vector and thereafter functions as a DenseLayer.
+  """
+
+  def __init__(self, nx, ny, nc, n, activation, w=None, b=None):
+
+    assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0
+           and isinstance(nc, int) and nc > 0)
+    super(DenseLayer2D, self).__init__(nx * ny * nc, n, activation, w, b)
+
+
+  def forward_pass(self, x, save, w=None, b=None):
+    x = x.reshape(self.nx)
+    return super(DenseLayer2D, self).forward_pass(x, save, w, b)
+
+
+
 class ConvLayer(Layer):
   """
   A convolutional layer.
@@ -340,7 +373,8 @@ class ConvLayer(Layer):
   def __init__(self, nx, ny, nc, k, c, s, p, w=None, b=None):
 
     assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0 \
-           and isinstance(nc, int) and nc > 0)
+           and isinstance(nc, int) and nc > 0), \
+           'nx = %d, ny = %d, nc = %d' % (nx, ny, nc)
     assert(isinstance(k, int) and k > 0 and isinstance(c, int) and c > 0)
     assert(isinstance(s, int) and s > 0 and isinstance(p, int) and p >= 0)
 
@@ -607,9 +641,6 @@ class ActivationLayer(Layer):
     elif self.activation == 'sigmoid':
       self.f = self._f_sigmoid
       self.dfdx = self._dfdx_sigmoid
-    elif self.activation == 'softmax':
-      self.f = self._f_softmax
-      self.dfdx = self._dfdx_softmax
     else:
       assert False, "Error: activation function %s is not implemented." % \
         self.activation

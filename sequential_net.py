@@ -3,32 +3,38 @@ from constants import *
 from loss_functions import *
 
 
+###@@@ TODO!
+###@@@ SequentialNet only takes 2D images (multiple channels okay) as input and
+###@@@ output. It cannot be used as it to construct MLP with 1D input/output.
+
+
 class SequentialNet:
     """
     A sequential neural net, i.e. any neural network that does not have recurrent
     connections, e.g. MLP, ConvNet
     """
 
-    def __init__(self, input_dimensions, output_dimensions):
+    def __init__(self): #, input_dimensions, output_dimensions):
 
-        assert(len(input_dimensions)==2 and \
-               all([isinstance(it, int) and it>0 for it in input_dimensions])), \
-               'Incorrect input_dimensions %r.' % input_dimensions
-        assert(len(output_dimensions)==2 and \
-               all([isinstance(it, int) and it>0 for it in output_dimensions])), \
-               'Incorrect output_dimensions %r.' % output_dimensions
+        # assert(len(input_dimensions)==2 and \
+        #        all([isinstance(it, int) and it>0 for it in input_dimensions])), \
+        #        'Incorrect input_dimensions %r.' % input_dimensions
+        # assert(len(output_dimensions)==2 and \
+        #        all([isinstance(it, int) and it>0 for it in output_dimensions])), \
+        #        'Incorrect output_dimensions %r.' % output_dimensions
 
         # Layer 0 is the input layer, it has no computation, represented by None
         # here.
         self.layers = [None]
 
-        self.nxi = input_dimensions[0]
-        self.nyi = input_dimensions[1]
-        self.nxo = output_dimensions[0]
-        self.nyo = output_dimensions[1]
+        # self.nxi = input_dimensions[0]
+        # self.nyi = input_dimensions[1]
+        # self.nxo = output_dimensions[0]
+        # self.nyo = output_dimensions[1]
 
         self.layers_module = __import__('layers')
         self.layer_types = ['DenseLayer',
+                            'DenseLayer2D',
                             'ConvLayer',
                             'ActivationLayer',
                             'PoolingLayer']
@@ -40,7 +46,7 @@ class SequentialNet:
             l.reset_cache()
 
 
-    def add_layer(self, layer_type, layer_params, w=None):
+    def add_layer(self, layer_type, layer_params):
         """Augment the SequentialNet by a new layer, with layer_params depending
         on the layer_type. Optionally use an initial weight matrix w."""
 
@@ -48,7 +54,7 @@ class SequentialNet:
             'Unknown layer_type %s' % layer_type
 
         self.layers.append(
-            getattr(self.layers_module, layer_type)(*layer_params, w))
+            getattr(self.layers_module, layer_type)(*layer_params))
 
 
     def define_loss_function(self, loss_fxn_type):
@@ -97,7 +103,7 @@ class SequentialNet:
         """Update the weights matrix, bias vectors, if any, at every layer."""
         for l in self.layers:
             if l is not None:
-                l.update_weights(batch_size, l.dLdw=None, l.dLdb=None)
+                l.update_weights(batch_size, dLdw=None, dLdb=None)
 
 
     def check_gradient_at_layer(self, i):
@@ -125,7 +131,7 @@ class SequentialNet:
         """Helper function for self.check_gradient_from_layer for dLdw."""
 
         x = self.layers[i].x
-        w = self.layers[i].get_weights()
+        w = self.layers[i].w
         w_dims = w.shape
 
         # Calculate gw, the numerical gradient for weights
@@ -233,6 +239,16 @@ class SequentialNet:
         #print('loss = ', loss)
         #print('\n')
         return res, loss
+
+
+    def get_layer(self, i):
+        """Get the Layer object for the i-th layer. 0-th is the input layer, -1 is
+        the output layer."""
+        if i == 0:
+            print('No Layer object for the input layer.')
+            return None
+        else:
+            return self.layers[i]
 
 
     def print_weights(self, i):
