@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 from constants import *
 from loss_functions import *
@@ -93,6 +94,7 @@ class SequentialNet:
         """Backpropagate the loss error dLdxn up until to_layer, return dLdx,
         the loss gradient with respect to the input of that layer. If save,
         update the state of the SequentialNet as backprop happens."""
+        dLdx = dLdxn
         for l in reversed(self.layers[to_layer:]):
             if l is not None:
                 dLdx, dLdw, dLdb = l.backprop(dLdx, save)
@@ -130,32 +132,51 @@ class SequentialNet:
     def _check_gradient_from_layer_dLdw(self, i, y, dLdxn):
         """Helper function for self.check_gradient_from_layer for dLdw."""
 
+        def _calculate_nudge_updn_output(w, w_nudge):
+            """Helper function to calculate the net's output by nudging w up and
+            down. Return (nudge_up_results, nudge_down_results)."""
+            w_nudge_up = w + w_nudge
+            w_nudge_down = w - w_nudge
+            x_nudge_up = self.layers[i].forward_pass(
+                x, save=False, w=w_nudge_up)
+            x_nudge_down = self.layers[i].forward_pass(
+                x, save=False, w=w_nudge_down)
+            for l in self.layers[i+1::]:
+                x_nudge_up = l.forward_pass(x_nudge_up, save=False)
+                x_nudge_down = l.forward_pass(x_nudge_down, save=False)
+
+            return x_nudge_up, x_nudge_down
+
+
         x = self.layers[i].x
         w = self.layers[i].w
         w_dims = w.shape
 
         # Calculate gw, the numerical gradient for weights
-        assert len(w_dims)==2, 'w_dim != 2 is not yet implemented.'
         gw = np.zeros(w_dims)
-        for j in range(w_dims[0]):
-            for k in range(w_dims[1]):
+        if len(w_dims) == 2:
+            for j, k in itertools.product(*[range(it) for it in w_dims]):
                 w_nudge = np.zeros(w_dims)
                 w_nudge[j][k] = kEpsilonNumericalGrad
-                w_nudge_up = w + w_nudge
-                w_nudge_down = w - w_nudge
-                x_nudge_up = self.layers[i].forward_pass(
-                    x, save=False, w=w_nudge_up)
-                x_nudge_down = self.layers[i].forward_pass(
-                    x, save=False, w=w_nudge_down)
-                for l in self.layers[i+1::]:
-                    x_nudge_up = l.forward_pass(x_nudge_up, save=False)
-                    x_nudge_down = l.forward_pass(x_nudge_down, save=False)
+                x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(w, w_nudge)
                 gw[j][k] = (self.evaluate_loss(x_nudge_up, y) - \
                             self.evaluate_loss(x_nudge_down, y)) \
                             / 2.0 / kEpsilonNumericalGrad
+        elif len(w_dims) == 4:
+            for j,k,l,m in itertools.product(*[range(it) for it in w_dims]):
+                w_nudge = np.zeros(w_dims)
+                w_nudge[j][k][l][m] = kEpsilonNumericalGrad
+                x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(w, w_nudge)
+                gw[j][k][l][m] = (self.evaluate_loss(x_nudge_up, y) - \
+                            self.evaluate_loss(x_nudge_down, y)) \
+                            / 2.0 / kEpsilonNumericalGrad
+        else:
+            assert False, 'Unexpected len(w_dims). Received w_dims = {} for {}'\
+                .format(w_dims, self.layers[i].__class__)
+
 
         # Calculate dLdw, the analytical gradient from backprop
-        dLdx, dLdw, dLdb = self._backprop_plus(dLdxn, save=False, to_layer=i)
+        dLdx, dLdw, dLdb = self._backprop_to_layer(dLdxn, to_layer=i, save=False)
 
         # Compare numerical and analytical gradients
         gradient_diff = gw - dLdw
@@ -171,27 +192,49 @@ class SequentialNet:
 
     def _check_gradient_from_layer_dLdx(self, i, y, dLdxn):
         """Helper function for self.check_gradient_from_layer for dLdx."""
-        x_dim = self.layers[i].get_input_size() + 1 # +1 for the bias term
-        x = self.layers[i].x
 
-        # Calculate g, the numerical gradient
-        g = np.zeros(x_dim)
-        for j in range(x_dim):
-            x_nudge = np.zeros(x_dim)
-            x_nudge[j] = kEpsilonNumericalGrad
+        def _calculate_nudge_updn_output(x, x_nudge):
+            """Helper function to calculate the net's output by nudging x up and
+            down. Return (nudge_up_results, nudge_down_results)."""
             x_nudge_up = x + x_nudge
             x_nudge_down = x - x_nudge
             for l in self.layers[i::]:
                 x_nudge_up = l.forward_pass(x_nudge_up, save=False)
                 x_nudge_down = l.forward_pass(x_nudge_down, save=False)
-            g[j] = (self.evaluate_loss(x_nudge_up, y) -
-                    self.evaluate_loss(x_nudge_down, y)) \
-                    / 2.0 / kEpsilonNumericalGrad
-        # Discard the last element, which is the gradient on the bias term.
-        g = g[:-1]
+
+            return x_nudge_up, x_nudge_down
+
+
+        x = self.layers[i].x
+        x_dims = x.shape
+
+        # Calculate g, the numerical gradient
+        g = np.zeros(x_dims)
+        if len(x_dims) == 1:
+            for j in range(x_dims):
+                x_nudge = np.zeros(x_dims)
+                x_nudge[j] = kEpsilonNumericalGrad
+                x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(x, x_nudge)
+                g[j] = (self.evaluate_loss(x_nudge_up, y) -
+                        self.evaluate_loss(x_nudge_down, y)) \
+                        / 2.0 / kEpsilonNumericalGrad
+                # Discard the last element, which is the gradient on the bias term.
+                #g = g[:-1]
+        elif len(x_dims) == 3:
+            for j,k,l in itertools.product(*[range(it) for it in x_dims]):
+                x_nudge = np.zeros(x_dims)
+                x_nudge[j][k][l] = kEpsilonNumericalGrad
+                x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(x, x_nudge)
+                g[j][k][l] = (self.evaluate_loss(x_nudge_up, y) -
+                              self.evaluate_loss(x_nudge_down, y)) \
+                              / 2.0 / kEpsilonNumericalGrad
+        else:
+            assert False, 'Unexpected len(x_dims). Received x_dims = {} for {}'\
+                .format(x_dims, self.layers[i].__class__)
+
 
         # Calculate dLdx, the analytical gradient from backprop
-        dLdx, dLdw, dLdb = self._backprop_plus(dLdxn, save=False, to_layer=i)
+        dLdx, dLdw, dLdb = self._backprop_to_layer(dLdxn, to_layer=i, save=False)
 
         # Compare numerical and analytical gradients
         gradient_diff = g - dLdx

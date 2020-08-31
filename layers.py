@@ -341,12 +341,22 @@ class DenseLayer2D(DenseLayer):
     assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0
            and isinstance(nc, int) and nc > 0)
     super(DenseLayer2D, self).__init__(nx * ny * nc, n, activation, w, b)
+    self.nxi = nx
+    self.nyi = ny
+    self.nc = nc
 
 
   def forward_pass(self, x, save, w=None, b=None):
     x = x.reshape(self.nx)
     return super(DenseLayer2D, self).forward_pass(x, save, w, b)
 
+
+  def backprop(self, dLdy, save):
+    dLdx, dLdw, dLdb = super(DenseLayer2D, self).backprop(dLdy, save)
+    dLdx = dLdx.reshape((self.nc, self.nxi, self.nyi))
+    if save:
+      self.dLdx = dLdx
+    return dLdx, dLdw, dLdb
 
 
 class ConvLayer(Layer):

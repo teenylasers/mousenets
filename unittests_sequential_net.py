@@ -37,23 +37,31 @@ class ConvNetTest(unittest.TestCase):
 
         # Layer 1: ConvLayer
         conv_params = self._generate_convlayer_params()
+        print('ConvLayer: nx = %d, ny = %d, nc = %d, k = %d, c = %d, s = %d, '
+              'p = %d.' % (conv_params[0], conv_params[1], conv_params[2],
+                           conv_params[3], conv_params[4], conv_params[5],
+                           conv_params[6]))
         cn.add_layer('ConvLayer', conv_params)
 
         # Layer 2: ActivationLayer
         nx = cn.get_layer(-1).nxo
         ny = cn.get_layer(-1).nyo
         nc = cn.get_layer(-1).c
+        print('ActivationLayer: nx = %d, ny = %d, nc = %d.' % (nx, ny, nc))
         cn.add_layer('ActivationLayer', (nx, ny, nc, activation_fxn))
 
         # Layer 3: PoolingLayer
-        k = random.choice(range(1,nx))
+        k = 1 if nx == 1 or ny == 1 else random.choice(range(1,min(nx, ny)))
         s = 1 if k == 1 else random.choice(range(1,k))
+        print('PoolingLayer: nx = %d, ny = %d, k = %d, s = %d.' % \
+              (nx, ny, k, s))
         cn.add_layer('PoolingLayer', (nx, ny, nc, k, s, pooling_fxn))
 
         # Layer 4: FC-Layer
         nx = cn.get_layer(-1).nxo
         ny = cn.get_layer(-1).nyo
         nc = cn.get_layer(-1).nc
+        print('FC-layer: nx = %d, ny = %d, nc = %d.' % (nx, ny, nc))
         cn.add_layer('DenseLayer2D', (nx, ny, nc, num_output, activation_fxn))
 
         # Softmax + cross-entropy loss function
@@ -78,20 +86,29 @@ class ConvNetTest(unittest.TestCase):
     def test_gradient(self):
 
         num_output = random.choice([2,3,4,5])
-        convnet = self._construct_convnet(
-            num_output, activation_fxn='relu', pooling_fxn='average')
-        x0 = np.random.rand(
-            convnet.get_layer(1).nc,
-            convnet.get_layer(1).nx,
-            convnet.get_layer(1).ny) * 10
-        xn = convnet.forward_pass(x0)
-        y = np.zeros(num_output)
-        y[random.choice(range(num_output))] = 1
+        num_tests = 5
 
-        loss = convnet.evaluate_loss(xn, y)
-        loss_grad = convnet.calculate_loss_gradient(xn, y)
+        for i in range(num_tests):
 
-        assert(convnet.check_gradient_from_layer(1, y, loss_grad))
+            print('Test %d: ' % i)
+
+            convnet = self._construct_convnet(
+                num_output, activation_fxn='relu', pooling_fxn='average')
+            x0 = np.random.rand(
+                convnet.get_layer(1).nc,
+                convnet.get_layer(1).nx,
+                convnet.get_layer(1).ny) * 10
+            xn = convnet.forward_pass(x0)
+            y = np.zeros(num_output)
+            y[random.choice(range(num_output))] = 1
+
+            loss = convnet.evaluate_loss(xn, y)
+            loss_grad = convnet.calculate_loss_gradient(xn, y)
+
+            for l in convnet.layers:
+                if l is not None:
+                    print('{}, input shape {}'.format(l.__class__, l.x.shape))
+            assert(convnet.check_gradient_from_layer(1, y, loss_grad))
 
 
 
