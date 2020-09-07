@@ -1,3 +1,5 @@
+import numpy as np
+import mlp, sequential_net
 
 
 class NetTrainer:
@@ -11,28 +13,30 @@ class NetTrainer:
         # eta is the learning rate.
 
         # Check input argument consistency
-        assert(isinstance(nn, MLP)), \
-            'Input neural net nn is not an instance of MLP class.'
+        assert(isinstance(nn, mlp.MLP) or \
+               isinstance(nn, sequential_net.SequentialNet)), \
+            'Input neural net nn is not an instance of MLP class or '\
+            'SequentialNet class. nn.__class__ = {}'.format(nn.__class__)
 
         assert(x_train.shape[0] == y_train.shape[0]), \
             'x_train and y_train should have the same number of samples.'
 
-        input_width = nn.get_layer_width(0)
-        assert(x_train.shape[1] == input_width), \
-            'x_train data has dimension %d, inconsistent with the neural net\'s '\
-            'input dimension %d.' \
-            % (x_train.shape[1], input_width)
+        input_dims = nn.get_layer_dims(0)
+        assert(x_train.shape[1:] == input_dims), \
+            'x_train data has dimension {}, inconsistent with the neural net\'s '\
+            'input dimension {}.'.format(
+                x_train.shape[1:], input_dims)
 
-        output_width = nn.get_layer_width(-1)
-        assert(y_train.shape[1] == output_width), \
-            'y_train data has dimension %d, inconsistent with the neural net\'s '\
-            'output dimension %d.' \
-            % (y_train.shape[1], output_width)
+        output_dims = nn.get_layer_dims(-1)
+        assert(y_train.shape[1:] == output_dims), \
+            'y_train data has dimension {}, inconsistent with the neural net\'s '\
+            'output dimension {}.'.format(
+                y_train.shape[1:], output_dims)
 
         num_samples = x_train.shape[0]
-        assert(batch_size <= num_samples), 'batch_size [%d] > number of samples '\
-            'in x/y_train [%d].' \
-            % (batch_size, num_samples)
+        assert(batch_size <= num_samples), 'batch_size [{}] > number of samples '\
+            'in x/y_train [{}].'.format(
+                batch_size, num_samples)
 
         # Initialize loss_history
         loss_history = []
@@ -44,28 +48,28 @@ class NetTrainer:
         for i in range(epochs):
             nn.reset_cache()
             cumulative_loss = 0
-            cumulative_loss_gradient = np.zeros(output_width)
-            loss_grads = np.zeros((batch_size, output_width))
+            cumulative_loss_gradient = np.zeros(output_dims)
+            loss_grads = np.zeros((batch_size, *output_dims))
 
-        # Evaluate loss and loss gradient for a batch
-        for j in range(batch_size):
-            s = self._select_sample(j, num_samples)
-            res = nn.forward_pass(x_train[s])
-            cumulative_loss += nn.evaluate_loss(res, y_train[s])
-            loss_grad = nn.calculate_loss_gradient(res, y_train[s])
-            nn.backprop(loss_grad * eta[i])
+            # Evaluate loss and loss gradient for a batch
+            for j in range(batch_size):
+                s = self._select_sample(j, num_samples)
+                res = nn.forward_pass(x_train[s])
+                cumulative_loss += nn.evaluate_loss(res, y_train[s])
+                loss_grad = nn.calculate_loss_gradient(res, y_train[s])
+                nn.backprop(loss_grad * eta[i])
 
-        # Train for this epoch
-        cumulative_loss = cumulative_loss / batch_size
-        nn.update_weights(batch_size)
-        #weights_before = nn.get_layer(1).get_weights()
-        #weights_after = nn.get_layer(1).get_weights()
-        #delta_w = weights_after - weights_before
-        #plt.imshow(delta_w)
-        #plt.show()
+            # Train for this epoch
+            cumulative_loss = cumulative_loss / batch_size
+            nn.update_weights(batch_size)
+            #weights_before = nn.get_layer(1).get_weights()
+            #weights_after = nn.get_layer(1).get_weights()
+            #delta_w = weights_after - weights_before
+            #plt.imshow(delta_w)
+            #plt.show()
 
-        #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
-        loss_history.append(cumulative_loss)
+            #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
+            loss_history.append(cumulative_loss)
 
         return nn, loss_history
 

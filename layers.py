@@ -19,10 +19,27 @@ class Layer(object):
     return
 
 
-  def update_weights(self, batch_size, dLdw, dLdb):
+  def update_weights(self, batch_size):
     """Given a dLdw and the batch_size that accumulated it, update self.wb."""
     self.w = self.w - self.dLdw / batch_size
     self.b = self.b - self.dLdb / batch_size
+
+
+  def reset_cache(self):
+    """Reset cached states, if any."""
+    return
+
+
+  @abc.abstractmethod
+  def get_input_dims(self):
+    """Return the input dimensions."""
+    return
+
+
+  @abc.abstractmethod
+  def get_output_dims(self):
+    """Return the output dimensions."""
+    return
 
 
   def check_gradient(self, dLdy):
@@ -131,6 +148,7 @@ class DenseLayer(Layer):
     # For batch training, we accumulate dLdw from each sample and update w at
     # the end of the batch.
     self.dLdw = np.zeros((self.n, self.nx))
+    self.dLdb = np.zeros((self.n, 1))
     self.dLdy = None
 
 
@@ -150,6 +168,7 @@ class DenseLayer(Layer):
       w = self.w
     if b is None:
       b = self.b
+
     wb = self._concat_w_b(w,b)
 
     # Decide whether the input x already has the bias term attached.
@@ -209,16 +228,16 @@ class DenseLayer(Layer):
     return dLdx, dLdw, dLdb
 
 
-  def update_weights(self, batch_size, dLdw, dLdb):
-    super(DenseLayer, self).update_weights(batch_size, dLdw, dLdb)
+  def update_weights(self, batch_size):
+    super(DenseLayer, self).update_weights(batch_size)
     self.wb = self._concat_w_b(self.w, self.b)
 
 
   def _concat_w_b(self, w, b):
     """Helper function to concatenate w matrix and b vector, so we can use a single
     matrix operation for both w and b in forward_pass and backprop."""
-    return np.c_[w, b]
-
+    wb = np.c_[w, b]
+    return wb
 
   def _check_gradient_dLdx(self, dLdy, dLdx):
 
@@ -285,12 +304,12 @@ class DenseLayer(Layer):
       np.max(np.square(gb - dLdb)) < kAllowNumericalErr
 
 
-  def get_input_size(self):
-    return self.nx
+  def get_input_dims(self):
+    return (self.nx,)
 
 
-  def get_width(self):
-    return self.n
+  def get_output_dims(self):
+    return (self.n,)
 
 
   def _f_sigmoid(self, h):
@@ -307,6 +326,7 @@ class DenseLayer(Layer):
   def _f_softmax(self, h):
     """Evaluate the softmax function for h, where h is a vector."""
     assert(len(h.shape)==1), 'Input arg h should be a vector.'
+    assert(not np.isnan(np.sum(h))), 'Input h should not contain NaN.'
     exp_h = np.exp(h)
     return exp_h/np.sum(exp_h)
 
@@ -314,6 +334,7 @@ class DenseLayer(Layer):
   def _dfdh_softmax(self, h):
     """Evaluate the gradient of softmax function at h, where h is a vector."""
     assert(len(h.shape)==1), 'Input arg h should be a vector.'
+    assert(not np.isnan(np.sum(h))), 'Input h should not contain NaN.'
     f_h = self._f_softmax(h)
     dfdh = np.diag(f_h) - np.outer(f_h, f_h)
     return dfdh
@@ -321,11 +342,13 @@ class DenseLayer(Layer):
 
   def _f_relu(self, h):
     """Evaluate the ReLU function for h."""
+    assert(not np.isnan(np.sum(h))), 'Input h should not contain NaN.'
     return h * (h > 0)
 
 
   def _dfdh_relu(self, h):
     """Evaluate the gradient of ReLU function at h."""
+    assert(not np.isnan(np.sum(h))), 'Input h should not contain NaN.'
     return np.diag((h > 0) * 1)
 
 
@@ -344,6 +367,7 @@ class DenseLayer2D(DenseLayer):
     self.nxi = nx
     self.nyi = ny
     self.nc = nc
+    self.n = n
 
 
   def forward_pass(self, x, save, w=None, b=None):
@@ -357,6 +381,15 @@ class DenseLayer2D(DenseLayer):
     if save:
       self.dLdx = dLdx
     return dLdx, dLdw, dLdb
+
+
+  def get_input_dims(self):
+    return (self.nc, self.nxi, self.nyi)
+
+
+  def get_output_dims(self):
+    return (self.n, )
+
 
 
 class ConvLayer(Layer):
@@ -434,7 +467,7 @@ class ConvLayer(Layer):
     self.x = None
     self.y = None
     self.dLdw = np.zeros((self.c, self.nc, self.k, self.k))
-    self.dLdb = np.zeros((self.nc, self.nx, self.ny))
+    self.dLdb = np.zeros((self.c, 1))
     self.dLdy = None
 
 
@@ -540,6 +573,14 @@ class ConvLayer(Layer):
 
     # Return (dLdx, dLdw, dLdb) for the previous layer's backprop
     return (dLdx, dLdw, dLdb)
+
+
+  def get_input_dims(self):
+    return (self.nc, self.nx, self.ny)
+
+
+  def get_output_dims(self):
+    return (self.c, self.nxo, self.nyo)
 
 
   def _check_gradient_dLdx(self, dLdy, dLdx):
@@ -680,6 +721,18 @@ class ActivationLayer(Layer):
     if save:
       self.dLdy = dLdy
     return dLdx, None, None
+
+
+  def update_weights(self, batch_size):
+    return
+
+
+  def get_input_dims(self):
+    return (self.nc, self.nx, self.ny)
+
+
+  def get_output_dims(self):
+    return (self.nc, self.nx, self.ny)
 
 
   def _check_gradient_dLdx(self, dLdy, dLdx):
@@ -834,6 +887,18 @@ class PoolingLayer(Layer):
 
     # Return
     return dLdx, None, None
+
+
+  def update_weights(self, batch_size):
+    return
+
+
+  def get_input_dims(self):
+    return (self.nc, self.nx, self.ny)
+
+
+  def get_output_dims(self):
+    return (self.nc, self.nxo, self.nyo)
 
 
   def _check_gradient_dLdx(self, dLdy, dLdx):

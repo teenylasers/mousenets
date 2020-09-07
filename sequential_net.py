@@ -4,7 +4,7 @@ from constants import *
 from loss_functions import *
 
 
-###@@@ TODO!
+###@@@ TODO
 ###@@@ SequentialNet only takes 2D images (multiple channels okay) as input and
 ###@@@ output. It cannot be used as it to construct MLP with 1D input/output.
 
@@ -44,7 +44,8 @@ class SequentialNet:
     def reset_cache(self):
         """Reset cached temporary states for all layers."""
         for l in self.layers:
-            l.reset_cache()
+            if l is not None:
+                l.reset_cache()
 
 
     def add_layer(self, layer_type, layer_params):
@@ -65,12 +66,13 @@ class SequentialNet:
 
     def normalize_data(self, x):
         """Normalize x, x can be a scalar, a vector, or a matrix."""
-        norm_factor = np.abs(np.max(x))
-        if norm_factor == 0:
-            return x
-        else:
-            assert norm_factor > 0, 'norm_factor should not be <0.'
-            return x * 1.0 / norm_factor
+        # Normalize the mean
+        norm_mean = np.mean(x)
+        x = x - norm_mean
+        # Normalize the variance
+        norm_factor = np.sum(np.square(x)) / x.size
+        assert norm_factor != 0
+        return x * 1.0 / norm_factor
 
 
     def forward_pass(self, x0):
@@ -87,7 +89,7 @@ class SequentialNet:
 
     def backprop(self, dLdxn):
         """Backpropagate the loss error dLdxn to update the SequentialNet."""
-        self._backprop_to_layer(to_layer=0, save=True)
+        self._backprop_to_layer(dLdxn, to_layer=0, save=True)
 
 
     def _backprop_to_layer(self, dLdxn, to_layer, save):
@@ -105,7 +107,7 @@ class SequentialNet:
         """Update the weights matrix, bias vectors, if any, at every layer."""
         for l in self.layers:
             if l is not None:
-                l.update_weights(batch_size, dLdw=None, dLdb=None)
+                l.update_weights(batch_size)
 
 
     def check_gradient_at_layer(self, i):
@@ -292,6 +294,15 @@ class SequentialNet:
             return None
         else:
             return self.layers[i]
+
+
+    def get_layer_dims(self, i):
+        """Get the width of the i-th layer. 0-th is the input layer, -1 for the
+        output layer."""
+        if i == 0:
+            return self.layers[1].get_input_dims()
+        else:
+            return self.get_layer(i).get_output_dims()
 
 
     def print_weights(self, i):

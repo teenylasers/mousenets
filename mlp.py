@@ -39,7 +39,7 @@ class MLP:
     if len(self.layers) == 0:
       in_dimension = self.nx0
     else:
-      in_dimension = self.layers[-1].get_width()
+      in_dimension = self.layers[-1].get_output_dims()[0]
     # Append the new layer.
     self.layers.append(DenseLayer(in_dimension, n, activation, w, b))
 
@@ -51,11 +51,13 @@ class MLP:
 
   def normalize_data(self, v):
     """Normalize the data vector v."""
-    norm_factor = np.abs(np.max(v))
-    if norm_factor != 0:
-      return v * 1.0 / norm_factor
-    else:
-      return v
+    # Normalize the mean
+    norm_mean = np.mean(v)
+    v = v - norm_mean
+    # Normalize the variance
+    norm_factor = np.sum(np.square(v)) / v.size
+    assert norm_factor != 0
+    return v * 1.0 / norm_factor
 
 
   def forward_pass(self, x0):
@@ -100,7 +102,7 @@ class MLP:
   def update_weights(self, batch_size):
     """Update the weights matrix in every layer."""
     for l in self.layers:
-      l.update_weights(l.dLdw, batch_size)
+      l.update_weights(batch_size)
 
 
   def check_gradient_at_layer(self, i):
@@ -178,7 +180,7 @@ class MLP:
       i = i - 1
     else:
       assert False, 'Cannot calculate dLdx for layer number %d.' % i
-    x_dim = self.layers[i].get_input_size() + 1 # +1 for the bias term
+    x_dim = self.layers[i].get_input_dims()[0] + 1 # +1 for the bias term
     x = self.layers[i].x
 
     # Calculate g, the numerical gradient
@@ -254,13 +256,13 @@ class MLP:
       return self.layers[i-1]
 
 
-  def get_layer_width(self, i):
+  def get_layer_dims(self, i):
     """Get the width of the i-th layer. 0-th is the input layer, -1 for the
     output layer."""
     if i == 0:
-      return self.nx0
+      return (self.nx0,)
     else:
-      return self.get_layer(i).get_width()
+      return self.get_layer(i).get_output_dims()
 
 
   def print_weights(self, i):
