@@ -19,10 +19,11 @@ class Layer(object):
     return
 
 
-  def update_weights(self, batch_size):
-    """Given a dLdw and the batch_size that accumulated it, update self.wb."""
-    self.w = self.w - self.dLdw / batch_size
-    self.b = self.b - self.dLdb / batch_size
+  def update_weights(self, batch_size, eta):
+    """Given a dLdw, the batch_size that accumulated it, and the learning rate eta,
+    update self.wb."""
+    self.w = self.w - eta * self.dLdw / batch_size
+    self.b = self.b - eta * self.dLdb / batch_size
 
 
   def reset_cache(self):
@@ -228,8 +229,8 @@ class DenseLayer(Layer):
     return dLdx, dLdw, dLdb
 
 
-  def update_weights(self, batch_size):
-    super(DenseLayer, self).update_weights(batch_size)
+  def update_weights(self, batch_size, eta):
+    super(DenseLayer, self).update_weights(batch_size, eta)
     self.wb = self._concat_w_b(self.w, self.b)
 
 
@@ -723,7 +724,7 @@ class ActivationLayer(Layer):
     return dLdx, None, None
 
 
-  def update_weights(self, batch_size):
+  def update_weights(self, batch_size, eta):
     return
 
 
@@ -889,7 +890,7 @@ class PoolingLayer(Layer):
     return dLdx, None, None
 
 
-  def update_weights(self, batch_size):
+  def update_weights(self, batch_size, eta):
     return
 
 

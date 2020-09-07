@@ -99,10 +99,10 @@ class MLP:
     return dLdx, dLdw, dLdb
 
 
-  def update_weights(self, batch_size):
-    """Update the weights matrix in every layer."""
+  def update_weights(self, batch_size, eta):
+    """Update the weights matrix in every layer, using the learning rate eta."""
     for l in self.layers:
-      l.update_weights(batch_size)
+      l.update_weights(batch_size, eta)
 
 
   def check_gradient_at_layer(self, i):

@@ -7,7 +7,6 @@ from net_trainer import *
 def generate_training_data_in(dims):
     """Generate random input training data of dimensions dims."""
     test_normalization_factor = random.uniform(1.0, 1e3)
-    print('test_normalization_factor = {}'.format(test_normalization_factor))
     x_train = np.random.rand(*dims) * test_normalization_factor
     return x_train
 
@@ -28,8 +27,6 @@ class NetTrainerTest(unittest.TestCase):
 
     def test_mlp_sgd(self):
         """Test training random MLPs using sgd (stochastic gradient descent)"""
-
-        return
 
         num_tests = 3
         test_activations = ['relu', 'sigmoid', 'softmax']
@@ -90,7 +87,8 @@ class NetTrainerTest(unittest.TestCase):
                 convnet, loss_history = trainer.sgd(
                     convnet, x_train, y_train, epochs, batch_size)
 
-                print(loss_history)
+                print('loss history: {} -> {}'.format(
+                    loss_history[0], loss_history[-1]))
                 # assert(loss_history[-1] < loss_history[0]), \
                 #     '{}'.format(loss_history)
 

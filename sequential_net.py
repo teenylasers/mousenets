@@ -103,11 +103,11 @@ class SequentialNet:
         return dLdx, dLdw, dLdb
 
 
-    def update_weights(self, batch_size):
+    def update_weights(self, batch_size, eta):
         """Update the weights matrix, bias vectors, if any, at every layer."""
         for l in self.layers:
             if l is not None:
-                l.update_weights(batch_size)
+                l.update_weights(batch_size, eta)
 
 
     def check_gradient_at_layer(self, i):

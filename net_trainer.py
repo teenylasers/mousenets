@@ -57,11 +57,11 @@ class NetTrainer:
                 res = nn.forward_pass(x_train[s])
                 cumulative_loss += nn.evaluate_loss(res, y_train[s])
                 loss_grad = nn.calculate_loss_gradient(res, y_train[s])
-                nn.backprop(loss_grad * eta[i])
+                nn.backprop(loss_grad)
 
             # Train for this epoch
             cumulative_loss = cumulative_loss / batch_size
-            nn.update_weights(batch_size)
+            nn.update_weights(batch_size, eta[i])
             #weights_before = nn.get_layer(1).get_weights()
             #weights_after = nn.get_layer(1).get_weights()
             #delta_w = weights_after - weights_before
@@ -82,7 +82,7 @@ class NetTrainer:
     def _get_etas(self, epochs, eta):
         assert(epochs>0), 'num epochs must be >0.'
         if eta is None:
-            eta_init = 8
+            eta_init = 0.01
             eta_prelim = [eta_init**(2**-n) for n in range(epochs)]
             return [it if it > 1 else 1 for it in eta_prelim]
         else:
