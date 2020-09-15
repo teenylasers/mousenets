@@ -1,7 +1,8 @@
 import itertools
 import numpy as np
-from constants import *
+import constants, utils
 from loss_functions import *
+from utils import *
 
 
 ###@@@ TODO
@@ -64,21 +65,10 @@ class SequentialNet:
         self.loss = LossFunction(loss_fxn_type)
 
 
-    def normalize_data(self, x):
-        """Normalize x, x can be a scalar, a vector, or a matrix."""
-        # Normalize the mean
-        norm_mean = np.mean(x)
-        x = x - norm_mean
-        # Normalize the variance
-        norm_factor = np.sum(np.square(x)) / x.size
-        assert norm_factor != 0
-        return x * 1.0 / norm_factor
-
-
     def forward_pass(self, x0):
         """Perform forward pass using input x0, cache intermediate layers' states,
         return output xN."""
-        x0 = self.normalize_data(x0)
+        x0 = utils.normalize_data(x0)
         x = x0
         for l in self.layers:
             if l is not None:
@@ -108,6 +98,12 @@ class SequentialNet:
         for l in self.layers:
             if l is not None:
                 l.update_weights(batch_size, eta)
+
+
+    def plot_gradient_distribution(self):
+        for l in self.layers:
+            if l is not None:
+                l.plot_gradient_distribution()
 
 
     def check_gradient_at_layer(self, i):
@@ -159,19 +155,19 @@ class SequentialNet:
         if len(w_dims) == 2:
             for j, k in itertools.product(*[range(it) for it in w_dims]):
                 w_nudge = np.zeros(w_dims)
-                w_nudge[j][k] = kEpsilonNumericalGrad
+                w_nudge[j][k] = constants.kEpsilonNumericalGrad
                 x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(w, w_nudge)
                 gw[j][k] = (self.evaluate_loss(x_nudge_up, y) - \
                             self.evaluate_loss(x_nudge_down, y)) \
-                            / 2.0 / kEpsilonNumericalGrad
+                            / 2.0 / constants.kEpsilonNumericalGrad
         elif len(w_dims) == 4:
             for j,k,l,m in itertools.product(*[range(it) for it in w_dims]):
                 w_nudge = np.zeros(w_dims)
-                w_nudge[j][k][l][m] = kEpsilonNumericalGrad
+                w_nudge[j][k][l][m] = constants.kEpsilonNumericalGrad
                 x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(w, w_nudge)
                 gw[j][k][l][m] = (self.evaluate_loss(x_nudge_up, y) - \
                             self.evaluate_loss(x_nudge_down, y)) \
-                            / 2.0 / kEpsilonNumericalGrad
+                            / 2.0 / constants.kEpsilonNumericalGrad
         else:
             assert False, 'Unexpected len(w_dims). Received w_dims = {} for {}'\
                 .format(w_dims, self.layers[i].__class__)
@@ -215,21 +211,21 @@ class SequentialNet:
         if len(x_dims) == 1:
             for j in range(x_dims):
                 x_nudge = np.zeros(x_dims)
-                x_nudge[j] = kEpsilonNumericalGrad
+                x_nudge[j] = constants.kEpsilonNumericalGrad
                 x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(x, x_nudge)
                 g[j] = (self.evaluate_loss(x_nudge_up, y) -
                         self.evaluate_loss(x_nudge_down, y)) \
-                        / 2.0 / kEpsilonNumericalGrad
+                        / 2.0 / constants.kEpsilonNumericalGrad
                 # Discard the last element, which is the gradient on the bias term.
                 #g = g[:-1]
         elif len(x_dims) == 3:
             for j,k,l in itertools.product(*[range(it) for it in x_dims]):
                 x_nudge = np.zeros(x_dims)
-                x_nudge[j][k][l] = kEpsilonNumericalGrad
+                x_nudge[j][k][l] = constants.kEpsilonNumericalGrad
                 x_nudge_up, x_nudge_down = _calculate_nudge_updn_output(x, x_nudge)
                 g[j][k][l] = (self.evaluate_loss(x_nudge_up, y) -
                               self.evaluate_loss(x_nudge_down, y)) \
-                              / 2.0 / kEpsilonNumericalGrad
+                              / 2.0 / constants.kEpsilonNumericalGrad
         else:
             assert False, 'Unexpected len(x_dims). Received x_dims = {} for {}'\
                 .format(x_dims, self.layers[i].__class__)

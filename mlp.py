@@ -1,5 +1,6 @@
 import numpy as np
-from constants import *
+import matplotlib.pyplot as plt
+import constants, utils
 from layers import *
 from loss_functions import *
 
@@ -49,21 +50,10 @@ class MLP:
     self.loss = LossFunction(loss_fxn_type)
 
 
-  def normalize_data(self, v):
-    """Normalize the data vector v."""
-    # Normalize the mean
-    norm_mean = np.mean(v)
-    v = v - norm_mean
-    # Normalize the variance
-    norm_factor = np.sum(np.square(v)) / v.size
-    assert norm_factor != 0
-    return v * 1.0 / norm_factor
-
-
   def forward_pass(self, x0):
     """Perform forward pass using input x0, cache intermediate layer states,
     return output xN."""
-    x0 = self.normalize_data(x0)
+    x0 = utils.normalize_data(x0)
     self.xn = self._forward_pass_plus(x0, save=True)
     return self.xn
 
@@ -105,6 +95,14 @@ class MLP:
       l.update_weights(batch_size, eta)
 
 
+  def plot_gradient_distribution(self):
+    """Plot the distribution of the values in dLdw in a histogram."""
+    for l in self.layers:
+      if l is not None:
+        l.plot_gradient_distribution()
+    plt.show(block=True)
+
+
   def check_gradient_at_layer(self, i):
     """Check backprop gradient for the i-th layer using its locally stored dLdy.
     """
@@ -144,7 +142,7 @@ class MLP:
     for j in range(w_dims[0]):
       for k in range(w_dims[1]):
         w_nudge = np.zeros(w_dims)
-        w_nudge[j][k] = kEpsilonNumericalGrad
+        w_nudge[j][k] = constants.kEpsilonNumericalGrad
         w_nudge_up = w + w_nudge
         w_nudge_down = w - w_nudge
         x_nudge_up = self.layers[i].forward_pass(
@@ -156,7 +154,7 @@ class MLP:
           x_nudge_down = l.forward_pass(x_nudge_down, save=False)
         gw[j][k] = (self.evaluate_loss(x_nudge_up, y) - \
                     self.evaluate_loss(x_nudge_down, y)) \
-                    / 2.0 / kEpsilonNumericalGrad
+                    / 2.0 / constants.kEpsilonNumericalGrad
 
     # Calculate dLdw, the analytical gradient from backprop
     dLdx, dLdw, dLdb = self._backprop_plus(dLdxn, save=False, to_layer=i)
@@ -187,14 +185,14 @@ class MLP:
     g = np.zeros(x_dim)
     for j in range(x_dim):
       x_nudge = np.zeros(x_dim)
-      x_nudge[j] = kEpsilonNumericalGrad
+      x_nudge[j] = constants.kEpsilonNumericalGrad
       x_nudge_up = x + x_nudge
       x_nudge_down = x - x_nudge
       for l in self.layers[i::]:
         x_nudge_up = l.forward_pass(x_nudge_up, save=False)
         x_nudge_down = l.forward_pass(x_nudge_down, save=False)
       g[j] = (self.evaluate_loss(x_nudge_up, y) - self.evaluate_loss(x_nudge_down, y)) \
-        / 2.0 / kEpsilonNumericalGrad
+        / 2.0 / constants.kEpsilonNumericalGrad
     g = g[:-1] # Discard the last element, which is the gradient on the bias term.
 
     # Calculate dLdx, the analytical gradient from backprop
@@ -277,3 +275,7 @@ class MLP:
       print('MLP.print_weights() for the %d-th layer (i=%d) =\n' % \
             (len(self.layers)-1, i))
       print(self.layers[i-1].get_weights())
+
+
+  def summary(self):
+    """Print a summary of the neural network."""

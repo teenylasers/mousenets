@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import abc, itertools
 
 from constants import *
@@ -20,10 +21,27 @@ class Layer(object):
 
 
   def update_weights(self, batch_size, eta):
-    """Given a dLdw, the batch_size that accumulated it, and the learning rate eta,
-    update self.wb."""
+    """Given a dLdw, the batch_size that accumulated it, and the learning rate
+    eta, update self.wb."""
     self.w = self.w - eta * self.dLdw / batch_size
     self.b = self.b - eta * self.dLdb / batch_size
+
+
+  def initialize_weights(self, weights_dims, num_input_pixels, init_method=None):
+    """Return an initial weights matrix of size weights_dims. num_input_pixels is
+    the number of input data pixels that will multiple the weights matrix to give
+    one output pixel. If init_method is not specified, then default to ReLU
+    initialization."""
+
+    if init_method == 'relu':
+      stddev = np.sqrt(2) # / num_input_pixels)
+    elif init_method is None or init_method == 'xavier':
+      stddev = np.sqrt(1) # / num_input_pixels)
+    else:
+      assert False, 'Unknown init_method %s' % init_method
+
+    # random * 2 - 1, so that the weights have zero-mean
+    return (np.random.rand(*weights_dims) * 2 - 1) * stddev
 
 
   def reset_cache(self):
@@ -41,6 +59,28 @@ class Layer(object):
   def get_output_dims(self):
     """Return the output dimensions."""
     return
+
+
+  def plot_gradient_distribution(self, g=None):
+    """Plot the distribution of values in the gradient matrix g in a histogram.
+    If g is None, plot self.dLdw. """
+
+    num_bins = 20
+    if g is None:
+      g = self.dLdw
+    plt.hist(g.reshape(g.size), num_bins)
+    plt.ion()
+    plt.pause(0.001)
+
+
+  def print_gradient_distribution(self, g=None):
+    """Print a line of text summary for the distribution of the values in the
+    gradient matrix g."""
+    if g is None:
+      g = self.dLdw
+    print(
+      'Gradient distribution: mean = {}, variance = {}, max = {}, min = {}'.format(
+        np.mean(g), np.var(g), np.max(g), np.min(g)))
 
 
   def check_gradient(self, dLdy):
@@ -112,7 +152,7 @@ class DenseLayer(Layer):
 
     # Initialize w and b if not provided
     if w is None:
-      self.w = self._initialize_weights(self.n, self.nx)
+      self.w = self.initialize_weights((self.n, self.nx), self.nx)
     else:
       assert(w.shape == (self.n, self.nx)), \
         'User input w has the wrong dimensions {}'.format(w.shape)
@@ -131,14 +171,10 @@ class DenseLayer(Layer):
     self.reset_cache()
 
 
-  def _initialize_weights(self, n, m):
-    """Initialize a weights matrix of dimensions (n x m)."""
-    return np.random.rand(n, m) * 2 - 1
-
-
   def _initialize_bias(self, n):
     """Initialize a bias vector of dimensions (1 x n)."""
-    return np.random.rand(n, 1) * 2 - 1
+    # return np.random.rand(n, 1) * 2 - 1
+    return self.initialize_weights((n, 1), 1)
 
 
   def reset_cache(self):
@@ -455,12 +491,12 @@ class ConvLayer(Layer):
 
   def _initialize_kernel(self, k, nc, c):
     """Initialize a kernel matrix of dimensions (k * k * nc)."""
-    return np.random.rand(c, nc, k, k) * 2 - 1
+    return self.initialize_weights((c, nc, k, k), nc*k*k)
 
 
   def _initialize_bias(self, c):
     """Initialize a bias vector of dimensions (c * 1)."""
-    return np.random.rand(c, 1) * 2 - 1
+    return self.initialize_weights((c, 1), 1)
 
 
   def reset_cache(self):

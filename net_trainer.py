@@ -7,9 +7,10 @@ class NetTrainer:
     Train a neural net.
     """
 
-    def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None):
+    def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None, viz=False):
         """Train a neural net nn using batched stochastic gradient descent, return
-        the trained neural net."""
+        the trained neural net. If viz, plot gradient distribution at each layer.
+        """
         # eta is the learning rate.
 
         # Check input argument consistency
@@ -62,6 +63,8 @@ class NetTrainer:
             # Train for this epoch
             cumulative_loss = cumulative_loss / batch_size
             nn.update_weights(batch_size, eta[i])
+            if viz:
+                nn.plot_gradient_distribution()
             #weights_before = nn.get_layer(1).get_weights()
             #weights_after = nn.get_layer(1).get_weights()
             #delta_w = weights_after - weights_before
