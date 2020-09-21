@@ -27,16 +27,20 @@ class Layer(object):
     self.b = self.b - eta * self.dLdb / batch_size
 
 
-  def initialize_weights(self, weights_dims, num_input_pixels, init_method=None):
-    """Return an initial weights matrix of size weights_dims. num_input_pixels is
-    the number of input data pixels that will multiple the weights matrix to give
-    one output pixel. If init_method is not specified, then default to ReLU
-    initialization."""
+  def initialize_weights(self, weights_dims, num_fanout,
+                         init_method='glorot_uniform'):
+    """Return an initial weights matrix of size weights_dims. num_fanout is the
+    the number of pixels the results of this weights multiplication will connect
+    to."""
+
+    num_fanin = weights_dims[-1]
 
     if init_method == 'relu':
-      stddev = np.sqrt(2) # / num_input_pixels)
-    elif init_method is None or init_method == 'xavier':
-      stddev = np.sqrt(1) # / num_input_pixels)
+      stddev = np.sqrt(2 / num_fanin)
+    elif init_method is None:
+      stddev = np.sqrt(1)
+    elif init_method == 'glorot_uniform':
+      stddev = np.sqrt(6 / (num_fanin + num_fanout))
     else:
       assert False, 'Unknown init_method %s' % init_method
 
@@ -152,7 +156,7 @@ class DenseLayer(Layer):
 
     # Initialize w and b if not provided
     if w is None:
-      self.w = self.initialize_weights((self.n, self.nx), self.nx)
+      self.w = self.initialize_weights((self.n, self.nx), self.n)
     else:
       assert(w.shape == (self.n, self.nx)), \
         'User input w has the wrong dimensions {}'.format(w.shape)
@@ -491,7 +495,7 @@ class ConvLayer(Layer):
 
   def _initialize_kernel(self, k, nc, c):
     """Initialize a kernel matrix of dimensions (k * k * nc)."""
-    return self.initialize_weights((c, nc, k, k), nc*k*k)
+    return self.initialize_weights((c, nc, k, k), 1)
 
 
   def _initialize_bias(self, c):
@@ -840,6 +844,11 @@ class PoolingLayer(Layer):
   # k = kernel size
   # s = stride
   # operator = pooling operator, take the max or average over the kernel
+
+
+  # @@@ TODO
+  # @@@ Add weights/bias and multiple kernel layers
+
 
 
   def __init__(self, nx, ny, nc, k, s, operator):
