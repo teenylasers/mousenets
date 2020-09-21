@@ -1,5 +1,6 @@
 import numpy as np
 import mlp, sequential_net
+from training_history import *
 
 
 class NetTrainer:
@@ -39,8 +40,8 @@ class NetTrainer:
             'in x/y_train [{}].'.format(
                 batch_size, num_samples)
 
-        # Initialize loss_history
-        loss_history = []
+        # Initialize training_history object
+        history = TrainingHistory(nn, epochs)
 
         # Initialize learning rate
         eta = self._get_etas(epochs, eta)
@@ -62,9 +63,9 @@ class NetTrainer:
 
             # Train for this epoch
             cumulative_loss = cumulative_loss / batch_size
+            #if viz:
+            #    nn.plot_gradient_distribution()
             nn.update_weights(batch_size, eta[i])
-            if viz:
-                nn.plot_gradient_distribution()
             #weights_before = nn.get_layer(1).get_weights()
             #weights_after = nn.get_layer(1).get_weights()
             #delta_w = weights_after - weights_before
@@ -72,9 +73,13 @@ class NetTrainer:
             #plt.show()
 
             #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
-            loss_history.append(cumulative_loss)
+            history.record(cumulative_loss, nn, i)
 
-        return nn, loss_history
+        # Visualize activation values history, if viz
+        if viz:
+            history.plot_activation_history()
+
+        return nn, history
 
 
     def _select_sample(self, count, num_samples):

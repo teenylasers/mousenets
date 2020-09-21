@@ -9,6 +9,8 @@ class Layer(object):
   """A layer in a neural network."""
   __metaclass__ = abc.ABCMeta
 
+  HAS_ACTIVATION = False
+
 
   @abc.abstractmethod
   def forward_pass(self, x, save, w=None, b=None):
@@ -27,17 +29,18 @@ class Layer(object):
     self.b = self.b - eta * self.dLdb / batch_size
 
 
-  def initialize_weights(self, weights_dims, num_fanout,
-                         init_method='glorot_uniform'):
+  def initialize_weights(self, weights_dims, init_method='glorot_uniform'):
     """Return an initial weights matrix of size weights_dims. num_fanout is the
     the number of pixels the results of this weights multiplication will connect
     to."""
 
-    num_fanin = weights_dims[-1]
+    num_fanin = weights_dims[-1] if len(weights_dims)==2 \
+      else np.prod(weights_dims[1:])
+    num_fanout = weights_dims[0]
 
     if init_method == 'relu':
       stddev = np.sqrt(2 / num_fanin)
-    elif init_method is None:
+    elif init_method == 'naive':
       stddev = np.sqrt(1)
     elif init_method == 'glorot_uniform':
       stddev = np.sqrt(6 / (num_fanin + num_fanout))
@@ -72,7 +75,7 @@ class Layer(object):
     num_bins = 20
     if g is None:
       g = self.dLdw
-    plt.hist(g.reshape(g.size), num_bins)
+    plt.hist(g.reshape(g.size), num_bins, histtype=u'step')
     plt.ion()
     plt.pause(0.001)
 
@@ -135,6 +138,8 @@ class DenseLayer(Layer):
 
   def __init__(self, nx, n, activation, w=None, b=None):
 
+    self.HAS_ACTIVATION = True
+
     assert(isinstance(n, int) and n > 0), 'n should be an integer and >0.'
     assert(isinstance(nx, int) and nx > 0), 'nx should be an integer and >0.'
 
@@ -156,7 +161,7 @@ class DenseLayer(Layer):
 
     # Initialize w and b if not provided
     if w is None:
-      self.w = self.initialize_weights((self.n, self.nx), self.n)
+      self.w = self.initialize_weights((self.n, self.nx))
     else:
       assert(w.shape == (self.n, self.nx)), \
         'User input w has the wrong dimensions {}'.format(w.shape)
@@ -178,7 +183,7 @@ class DenseLayer(Layer):
   def _initialize_bias(self, n):
     """Initialize a bias vector of dimensions (1 x n)."""
     # return np.random.rand(n, 1) * 2 - 1
-    return self.initialize_weights((n, 1), 1)
+    return self.initialize_weights((n, 1))
 
 
   def reset_cache(self):
@@ -402,6 +407,8 @@ class DenseLayer2D(DenseLayer):
 
   def __init__(self, nx, ny, nc, n, activation, w=None, b=None):
 
+    self.HAS_ACTIVATION = True
+
     assert(isinstance(nx, int) and nx > 0 and isinstance(ny, int) and ny > 0
            and isinstance(nc, int) and nc > 0)
     super(DenseLayer2D, self).__init__(nx * ny * nc, n, activation, w, b)
@@ -495,12 +502,12 @@ class ConvLayer(Layer):
 
   def _initialize_kernel(self, k, nc, c):
     """Initialize a kernel matrix of dimensions (k * k * nc)."""
-    return self.initialize_weights((c, nc, k, k), 1)
+    return self.initialize_weights((c, nc, k, k))
 
 
   def _initialize_bias(self, c):
     """Initialize a bias vector of dimensions (c * 1)."""
-    return self.initialize_weights((c, 1), 1)
+    return self.initialize_weights((c, 1))
 
 
   def reset_cache(self):
@@ -718,6 +725,8 @@ class ActivationLayer(Layer):
   # dLdx = backpropagation from dLdy to dLdx
 
   def __init__(self, nx, ny, nc, activation):
+
+    self.HAS_ACTIVATION = True
 
     assert(isinstance(nx, int) and nx > 0), 'nx should be an integer and >0.'
     assert(isinstance(ny, int) and ny > 0), 'ny should be an integer and >0.'

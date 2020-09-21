@@ -96,7 +96,8 @@ class MLP:
 
 
   def plot_gradient_distribution(self):
-    """Plot the distribution of the values in dLdw in a histogram."""
+    """Plot the distribution of the values in dLdw in a histogram. Include the loss
+    value in the plot, if provided."""
     for l in self.layers:
       if l is not None:
         l.plot_gradient_distribution()
@@ -279,3 +280,13 @@ class MLP:
 
   def summary(self):
     """Print a summary of the neural network."""
+    pass
+
+
+  def get_num_activation_layers(self):
+    """Return the number of activation layers in this net."""
+    n = 0
+    for l in self.layers:
+      if l.HAS_ACTIVATION:
+        n = n + 1
+    return n
