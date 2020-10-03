@@ -8,13 +8,67 @@ class NetTrainer:
     Train a neural net.
     """
 
-    def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None, viz=False):
+    def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None,
+            num_batches=None, viz=False):
         """Train a neural net nn using batched stochastic gradient descent, return
         the trained neural net. If viz, plot gradient distribution at each layer.
         """
-        # eta is the learning rate.
+        # Check input arguments are valid
+        self._check_input(nn, x_train, y_train, batch_size)
 
-        # Check input argument consistency
+        # Initialize learning rate eta
+        eta = self._get_etas(epochs, eta)
+
+        # Initialize training_history object
+        history = TrainingHistory(nn, epochs)
+
+        # Do batched sgd
+        output_dims = nn.get_layer_dims(-1)
+        num_samples = x_train.shape[0]
+
+        for i in range(epochs):
+
+            batches = self._form_batches(num_samples, batch_size, num_batches)
+            cumulative_loss = 0
+
+            for j in range(len(batches)):
+
+                nn.reset_cache()
+
+                # Evaluate loss and loss gradient for a batch
+                for s in batches[j]:
+
+                    res = nn.forward_pass(x_train[s])
+                    cumulative_loss += nn.evaluate_loss(res, y_train[s])
+                    loss_grad = nn.calculate_loss_gradient(res, y_train[s])
+                    nn.backprop(loss_grad)
+
+                # Train for this epoch
+                #if viz:
+                #    nn.plot_gradient_distribution()
+                nn.update_weights(batch_size, eta[i])
+                #weights_before = nn.get_layer(1).get_weights()
+                #weights_after = nn.get_layer(1).get_weights()
+                #delta_w = weights_after - weights_before
+                #plt.imshow(delta_w)
+                #plt.show()
+
+            # Record the ending cumulative loss and neural net state in this
+            # epoch
+            cumulative_loss = cumulative_loss / sum([sum(it) for it in batches])
+            #print('Epoch #%d: loss = %f' % (i, cumulative_loss))
+            history.record(cumulative_loss, nn, i)
+
+        # Visualize activation values history, if viz
+        #if viz:
+        #    history.plot_activation_history()
+
+        return nn, history
+
+
+    def _check_input(self, nn, x_train, y_train, batch_size):
+        """Check that the input arguments to a NetTrainer are valid. """
+
         assert(isinstance(nn, mlp.MLP) or \
                isinstance(nn, sequential_net.SequentialNet)), \
             'Input neural net nn is not an instance of MLP class or '\
@@ -40,54 +94,33 @@ class NetTrainer:
             'in x/y_train [{}].'.format(
                 batch_size, num_samples)
 
-        # Initialize training_history object
-        history = TrainingHistory(nn, epochs)
 
-        # Initialize learning rate
-        eta = self._get_etas(epochs, eta)
-
-        # Do batched sgd
-        for i in range(epochs):
-            nn.reset_cache()
-            cumulative_loss = 0
-            cumulative_loss_gradient = np.zeros(output_dims)
-            loss_grads = np.zeros((batch_size, *output_dims))
-
-            # Evaluate loss and loss gradient for a batch
-            for j in range(batch_size):
-                s = self._select_sample(j, num_samples)
-                res = nn.forward_pass(x_train[s])
-                cumulative_loss += nn.evaluate_loss(res, y_train[s])
-                loss_grad = nn.calculate_loss_gradient(res, y_train[s])
-                nn.backprop(loss_grad)
-
-            # Train for this epoch
-            cumulative_loss = cumulative_loss / batch_size
-            #if viz:
-            #    nn.plot_gradient_distribution()
-            nn.update_weights(batch_size, eta[i])
-            #weights_before = nn.get_layer(1).get_weights()
-            #weights_after = nn.get_layer(1).get_weights()
-            #delta_w = weights_after - weights_before
-            #plt.imshow(delta_w)
-            #plt.show()
-
-            #print('Epoch #%d: loss = %f\n' % (i, cumulative_loss))
-            history.record(cumulative_loss, nn, i)
-
-        # Visualize activation values history, if viz
-        if viz:
-            history.plot_activation_history()
-
-        return nn, history
-
-
-    def _select_sample(self, count, num_samples):
-        """Helper function to select sample from num_samples."""
-        return np.random.randint(low=0, high=num_samples-1)
+    def _form_batches(self, num_samples, batch_size, num_batches=None):
+        """Form a list of batches, which of length batch_size from a total
+        num_samples. Each batch is a list of sample indices. If num_batches is
+        not specified, split all samples into batches. Else, list length is
+        num_batches."""
+        n = int(np.ceil(num_samples / batch_size))
+        if num_batches is None:
+            num_batches = n
+        else:
+            assert(num_batches <= n), 'Too many num_batches [{}] for num_samples'\
+                ' [{}] and batch_size [{}]'.format(
+                    num_batches, num_samples, batch_size)
+        samples = list(range(num_samples))
+        np.random.shuffle(samples)
+        if num_batches < n:
+            res = [samples[it*batch_size : it*batch_size+batch_size]
+                   for it in range(num_batches)]
+        else:
+            res = [samples[it*batch_size : it*batch_size+batch_size]
+                   for it in range(num_batches-1)]
+            res.append(samples[num_batches-1*batch_size :])
+        return res
 
 
     def _get_etas(self, epochs, eta):
+        """Return a learning rate schedule, a list of eta for each training epoch."""
         assert(epochs>0), 'num epochs must be >0.'
         if eta is None:
             eta_init = 0.01

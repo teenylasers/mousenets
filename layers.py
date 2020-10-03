@@ -29,7 +29,7 @@ class Layer(object):
     self.b = self.b - eta * self.dLdb / batch_size
 
 
-  def initialize_weights(self, weights_dims, init_method='glorot_uniform'):
+  def initialize_weights(self, weights_dims, init_method=None):
     """Return an initial weights matrix of size weights_dims. num_fanout is the
     the number of pixels the results of this weights multiplication will connect
     to."""
@@ -38,17 +38,24 @@ class Layer(object):
       else np.prod(weights_dims[1:])
     num_fanout = weights_dims[0]
 
-    if init_method == 'relu':
-      stddev = np.sqrt(2 / num_fanin)
+    if init_method == 'relu' or \
+       (self.HAS_ACTIVATION and self.activation=='relu'):
+      random_distr = np.random.uniform
+      stddev = np.sqrt(6 / num_fanin)
     elif init_method == 'naive':
-      stddev = np.sqrt(1)
-    elif init_method == 'glorot_uniform':
+      random_distr = np.random.uniform
+      stddev = np.sqrt(1 / num_fanin)
+    elif init_method == 'glorot' or \
+         (self.HAS_ACTIVATION and \
+          (self.activation=='sigmoid' or self.activation=='softmax')):
+      random_distr = np.random.uniform
       stddev = np.sqrt(6 / (num_fanin + num_fanout))
     else:
       assert False, 'Unknown init_method %s' % init_method
 
-    # random * 2 - 1, so that the weights have zero-mean
-    return (np.random.rand(*weights_dims) * 2 - 1) * stddev
+    # random.rand() * 2 - 1, so that the weights have zero-mean and distribute
+    # over (-1, 1)
+    return (random_distr(size=weights_dims) * 2 - 1) * stddev
 
 
   def reset_cache(self):
@@ -183,7 +190,8 @@ class DenseLayer(Layer):
   def _initialize_bias(self, n):
     """Initialize a bias vector of dimensions (1 x n)."""
     # return np.random.rand(n, 1) * 2 - 1
-    return self.initialize_weights((n, 1))
+    # return self.initialize_weights((n, 1))
+    return np.zeros((n,1))
 
 
   def reset_cache(self):
@@ -507,7 +515,8 @@ class ConvLayer(Layer):
 
   def _initialize_bias(self, c):
     """Initialize a bias vector of dimensions (c * 1)."""
-    return self.initialize_weights((c, 1))
+    # return self.initialize_weights((c, 1))
+    return np.zeros((c, 1))
 
 
   def reset_cache(self):
