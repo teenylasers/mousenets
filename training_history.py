@@ -74,7 +74,7 @@ class TrainingHistory(FrozenObject):
         """Record statistics about a set of activation_values."""
         li = 0 # activation layer index
         for l in nn.layers:
-            if l.HAS_ACTIVATION:
+            if l is not None and l.HAS_ACTIVATION:
                 self.activation_history[li].record_stats(l.y, epoch)
                 li = li + 1
         # Check that we did cover all activation layers.

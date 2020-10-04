@@ -8,8 +8,8 @@ class NetTrainer:
     Train a neural net.
     """
 
-    def sgd(self, nn, x_train, y_train, epochs, batch_size, eta=None,
-            num_batches=None, viz=False):
+    def sgd(self, nn, x_train, y_train, epochs, batch_size, num_batches=None,
+            eta=None, viz=False):
         """Train a neural net nn using batched stochastic gradient descent, return
         the trained neural net. If viz, plot gradient distribution at each layer.
         """
@@ -31,13 +31,13 @@ class NetTrainer:
             batches = self._form_batches(num_samples, batch_size, num_batches)
             cumulative_loss = 0
 
+            print('Epoch {}: '.format(i), end='')
             for j in range(len(batches)):
 
                 nn.reset_cache()
 
                 # Evaluate loss and loss gradient for a batch
                 for s in batches[j]:
-
                     res = nn.forward_pass(x_train[s])
                     cumulative_loss += nn.evaluate_loss(res, y_train[s])
                     loss_grad = nn.calculate_loss_gradient(res, y_train[s])
@@ -47,6 +47,7 @@ class NetTrainer:
                 #if viz:
                 #    nn.plot_gradient_distribution()
                 nn.update_weights(batch_size, eta[i])
+                print('=',end='')
                 #weights_before = nn.get_layer(1).get_weights()
                 #weights_after = nn.get_layer(1).get_weights()
                 #delta_w = weights_after - weights_before
@@ -55,8 +56,8 @@ class NetTrainer:
 
             # Record the ending cumulative loss and neural net state in this
             # epoch
-            cumulative_loss = cumulative_loss / sum([sum(it) for it in batches])
-            #print('Epoch #%d: loss = %f' % (i, cumulative_loss))
+            cumulative_loss = cumulative_loss / sum([len(it) for it in batches])
+            print('| cumulative_loss = {}'.format(cumulative_loss))
             history.record(cumulative_loss, nn, i)
 
         # Visualize activation values history, if viz
@@ -123,8 +124,8 @@ class NetTrainer:
         """Return a learning rate schedule, a list of eta for each training epoch."""
         assert(epochs>0), 'num epochs must be >0.'
         if eta is None:
-            eta_init = 0.01
-            eta_prelim = [eta_init**(2**-n) for n in range(epochs)]
+            eta_init = 0.9
+            eta_prelim = [eta_init/(2**n) for n in range(epochs)]
             return [it if it > 1 else 1 for it in eta_prelim]
         else:
             return [eta]*epochs

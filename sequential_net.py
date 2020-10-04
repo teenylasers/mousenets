@@ -309,3 +309,12 @@ class SequentialNet:
         else:
             print('MLP.print_weights() for the %d-th layer =\n' % i)
             print(self.layers[i].get_weights())
+
+
+    def get_num_activation_layers(self):
+        """Return the number of activation layers in this net."""
+        n = 0
+        for l in self.layers:
+            if l is not None and l.HAS_ACTIVATION:
+                n = n + 1
+        return n

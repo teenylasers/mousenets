@@ -41,7 +41,7 @@ class Layer(object):
     if init_method == 'relu' or \
        (self.HAS_ACTIVATION and self.activation=='relu'):
       random_distr = np.random.uniform
-      stddev = np.sqrt(6 / num_fanin)
+      stddev = np.sqrt(2 / num_fanin)
     elif init_method == 'naive':
       random_distr = np.random.uniform
       stddev = np.sqrt(1 / num_fanin)
@@ -51,7 +51,9 @@ class Layer(object):
       random_distr = np.random.uniform
       stddev = np.sqrt(6 / (num_fanin + num_fanout))
     else:
-      assert False, 'Unknown init_method %s' % init_method
+      # Default initialization is ReLU He-initialization.
+      random_distr = np.random.uniform
+      stddev = np.sqrt(2 / num_fanin)
 
     # random.rand() * 2 - 1, so that the weights have zero-mean and distribute
     # over (-1, 1)
@@ -516,7 +518,7 @@ class ConvLayer(Layer):
   def _initialize_bias(self, c):
     """Initialize a bias vector of dimensions (c * 1)."""
     # return self.initialize_weights((c, 1))
-    return np.zeros((c, 1))
+    return self.initialize_weights((c, 1), 'relu')
 
 
   def reset_cache(self):
