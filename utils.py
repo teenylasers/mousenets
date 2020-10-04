@@ -53,5 +53,7 @@ def image_to_points(array, threshold=128, num_points=256, viz=False):
         plt.show()
         print(s.shape)
 
-    # Return results
+    # Shuffle up the points, so they are not ordered by x or y.
+    np.random.shuffle(s)
+
     return s
