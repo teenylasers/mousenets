@@ -10,8 +10,11 @@
 ##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @section{Multilayer Perceptron}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsection{Notes to sort and add}
 
@@ -28,6 +31,8 @@
 
 @* Dropout layers
 }
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsection{Architecture}
 
@@ -52,24 +57,12 @@ When we look at a layer on its own, we simplify the notation by ridding of the s
 }
 where @m{Y} is an @m{N}-dimensional vector, @m{X} is an @m{N_x}-dimensional vector, and @m{W} is an @m{(N \times N_x)} matrix.
 
-@subsection{Example implementations}
 
-@subsubsection{@label{mlp32_10} MLP(32,10) for MNIST}
-
-For a first implementation to classify hand-written digits using the MNIST dataset, we use a 3-layer MLP. Each input image is @m{28\times28} pixels, converted to a 784-element vector for the input layer. The single hidden layer is 32-wide, using the sigmoid activation function. The output layer is 10-wide, using the softmax activation function. Therefore,
-
-@M{
-  X_0 &\in \mathbb{R}^{784 \times 1} \nonumber \\
-  W_1 &\in \mathbb{R}^{785 \times 32} \nonumber \\
-  X_1 &\in \mathbb{R}^{32 \times 1} \nonumber \\
-  W_2 &\in \mathbb{R}^{33 \times 10} \nonumber \\
-  X_2 &\in \mathbb{R}^{10 \times 1}
-}
-
-Categorical cross-entropy is used to calculate loss.
-
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsection{Activation function}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Sigmoid function}
 @M{
@@ -95,7 +88,11 @@ Categorical cross-entropy is used to calculate loss.
 }
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Loss function}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Categorial cross-entropy loss}
 
@@ -132,6 +129,8 @@ When categorical cross-entropy loss is combined with softmax function as the act
 
 @eqref{loss_sce} and @eqref{loss_grad_sce} simplify backpropagation calculations in gradient descent, letting us bypass the somewhat complex @eqref{softmax_grad}.
 
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsection{Backpropagation}
 
@@ -197,6 +196,8 @@ where @eqref{backprop_weights} updates the weights in this layer and @eqref{back
 
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{Check gradient}
 
 Backpropagation @eqref{backprop_weights} and @eqref{backprop_x} gives us analytically calculated gradient at each layer of the neural network. We can check the correctness of our implementation against numerically calculate gradients, that is, for the @m{i}-th layer, we wish to verify the loss gradient with respect to the layer input @m{\frac{\partial \mathcal{L}}{\partial X^{(i-1)}}} and the weights @m{\frac{\partial \mathcal{L}}{\partial W^{(i)}}}
@@ -214,7 +215,56 @@ Alternatively, we can check gradient by tweaking the @m{k}-th element on the @m{
     &= \frac{\mathcal{L}(X^{(i)}_k + \epsilon) - \mathcal{L}(X^{(i)}_k - \epsilon)}{2\epsilon}
 }
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Optimization}
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@subsubsection{Data normalization}
+
+The activation functions and loss gradient calculations involve operations with exponentials and data division. When the dynamic range of the input data is too large or too small, we can easily run into numerical instability where exponential of a very large number or division by a very small number results in numerical overflow. This problem can be greatly helped by normalizing the mean and variance of the input data:
+
+@list{
+@* Normalize the mean
+@M{
+  \mu &= \frac{1}{M} \sum_i^M X_i \\
+  X &= X - \mu
+}
+
+@* Normalize the variance
+
+@m{\text{Var}(X) = \text{E}(X - \mu)}. Because we have already normalized the mean to 0, we normalize the variance of @m{X} as below,
+@M{
+  \sigma^2 &= \frac{1}{M} \sum_i^M X_i^2 \\
+  X &= X / \sigma
+}
+}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@subsubsection{Batch normalization}
+
+
+
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@subsubsection{Weights initialization}
+
+
+Closely related to input data normalization is the concept of weights initialization. The activation functions operate on the product @m{H^{(i)} = W^{(i)}X^{(i-1)}}, and only operate as the desired nonlinear functions for a very limited range of @m{H}. If @m{H} is too close to zero, the activation functions are linear; if @m{\text{abs}(H{(i)})} is too large, then the activation function saturates, resulting in very slow progression for gradient descent.
+
+@b{Xavier Initialization}
+
+One approach is to control the variance of @m{H^{(i)}}. Xavier or Glorot Uniform initialization follows this line of reasoning, and was derived for sigmoid or tanh like activation functions.
+
+@@@@@@ Add derivation and reference.
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Gradient descent: stochastic and batch}
 
@@ -224,10 +274,80 @@ To implement batch gradient descent, we backpropagate the loss gradient for each
 
 Alternatively, some implementations cache @m{X^{(i)}} for all samples, and perform backpropagation once over the @m{(N_x \times \text{batch_size})} @m{X^{(i)}} matrices. This requires more memory to save intermediate results and matrix by matrix operations for analytical gradient calculations.
 
+@b{Epoch}
+
+An epoch is when all samples in the data set has been used once to update the neural network. As such, for a data set of size @m{n_{tot}} and a batch size of @m{n_{batch}}, there would be @m{\text{Ceil}(n_{tot} / n_{btach})} iterations of forward pass and backpropagation to update the weights.
+
+In our implementation, we have the option to choose the number of batches per epoch. The default is to use all data in the set in each epoch.
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@subsection{Example implementations}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+@subsubsection{@label{mlp32_10} MLP(32,10) for MNIST}
+
+For a first implementation to classify hand-written digits using the MNIST dataset, we use a 3-layer MLP. Each input image is @m{28\times28} pixels, converted to a 784-element vector for the input layer. The single hidden layer is 32-wide, using the sigmoid activation function. The output layer is 10-wide, using the softmax activation function. Therefore,
+
+@M{
+  X_0 &\in \mathbb{R}^{784 \times 1} \nonumber \\
+  W_1 &\in \mathbb{R}^{785 \times 32} \nonumber \\
+  X_1 &\in \mathbb{R}^{32 \times 1} \nonumber \\
+  W_2 &\in \mathbb{R}^{33 \times 10} \nonumber \\
+  X_2 &\in \mathbb{R}^{10 \times 1}
+}
+
+Categorical cross-entropy is used to calculate loss.
+
+@subsubsection{Implementation comparison}
+
+We compare Mousenets implementation with Tensorflow Keras, over 10 training epochs with a batch size of 32. In the default Keras implementation, each epoch train over the entire sample set. Because Mousenets is not optimized with hardware accelerators or parallel processes, we use 20 batches of 32 samples to train per epoch.
+
+The Keras implementaiton is as follows.
+@[
+num_elements_l1 = 32 # layer 1, counting from but excluding input
+num_elements_l2 = 10
+
+mlp = tf.keras.Sequential()
+mlp.add(tf.keras.Input(shape=(image_vector_length,)))
+mlp.add(tf.keras.layers.Dense(units=num_elements_l1, activation='sigmoid'))
+mlp.add(tf.keras.layers.Dense(units=num_elements_l2, activation='softmax'))
+mlp.summary()
+
+opt = tf.keras.optimizers.SGD(learning_rate=0.01)
+mlp.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+history = mlp.fit(x_train, y_train, batch_size=32, epochs=10, verbose=True, validation_split=0.1)
+loss, accuracy = mlp.evaluate(x_test, y_test, verbose=True)
+]@
+
+Over 10 epochs, we can get to about 90% accuracy, as expected for such a simple network. The evolution of training loss and accuracy is as follows. The Keras implementation uses a default constant learning rate of 0.01. We ran our implementation using either a constant learning rate or a decreasing learning rate @m{\eta = 0.9/(2^n)} for the n-th epoch starting from the zeroth epoch.
+@table{
+@* Epoch @| Keras @m{\eta = 0.01}  @| Mousenets @m{\eta = 0.01} @| Mousenets @m{\eta = 0.3}  @| Mousenets decaying @m{\eta}
+@*       @| Loss , Accuracy        @| Loss , Accuracy           @| Loss , Accuracy           @| Batch size = 128, num batches = 50
+@*     0 @| 1.0755 , 0.7358        @| 2.3604 ,                  @| 1.5923 ,                  @| 0.8018 ,
+@*     1 @| 0.5846 , 0.8546        @| 2.1579 ,                  @| 0.9510 ,                  @| 0.3753 ,
+@*     2 @| 0.4934 , 0.8706        @| 2.0295 ,                  @| 0.7546 ,                  @| 0.3232 ,
+@*     3 @| 0.4479 , 0.8770        @| 1.9534 ,                  @| 0.6399 ,                  @| 0.2863 ,
+@*     4 @| 0.4156 , 0.8850        @| 1.8578 ,                  @| 0.5490 ,                  @| 0.2658 ,
+@*     5 @| 0.4192 , 0.8813        @| 1.7573 ,                  @| 0.4856 ,                  @| 0.2683 ,
+@*     6 @| 0.3858 , 0.8901        @| 1.7086 ,                  @| 0.4857 ,                  @| 0.2608 ,
+@*     7 @| 0.3737 , 0.8920        @| 1.6593 ,                  @| 0.4613 ,                  @| 0.2312 ,
+@*     8 @| 0.3562 , 0.8968        @| 1.5676 ,                  @| 0.4028 ,                  @| 0.2208 ,
+@*     9 @| 0.3498 , 0.8969        @| 1.5744 ,                  @| 0.3762 ,                  @| 0.2079 ,
+@*    10 @| 0.3318 , 0.9041        @| 1.5063 , 0.7062           @| 0.3846 , 0.8966           @| 0.2135 , 0.9375
+}
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsection{Visualization}
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{The training process}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{The trained MLP}
 
@@ -244,7 +364,20 @@ Alternatively, some implementations cache @m{X^{(i)}} for all samples, and perfo
 
 @section{ConvNet}
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Architecture}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+The success of convolutional networks boils down to exploiting translation invariance, thus enabling:
+@list{
+  @* Reduce the number of parameters needed to model high dimensional data
+  @* Decouple the number of parameters from the number of input dimensions
+  @* Generalize better
+}
+
 
 @subsubsection{Convolutional layer}
 
@@ -314,6 +447,8 @@ then
 }
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{ReLU layer}
 
 @M{
@@ -327,6 +462,8 @@ then
       \end{cases}
 }
 
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Pooling layer}
 
@@ -364,6 +501,8 @@ The backpropagate the error gradient @m{\partial \mathcal{L}/\partial Y} to @m{\
 where @m{c} is the channel index, @m{i = 0..N_x^{(i)}}, @m{j = 0..N_y^{(i)}}, @m{p = 0..N_x^{(i-1)}}, @m{q = 0..N_y^{(i-1)}}.
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{Network architecture}
 
 ConvNets are stacks of convolutional, activation, pooling, and fully-connected (FC) layers. A traditional architecture lookes like
@@ -397,7 +536,12 @@ There are suggestions to remove pooling layers and downsample with conv layers u
 
 }
 
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Example implementations}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Rewrite MLP(32,10) for MNIST as a ConvNet}
 
@@ -410,16 +554,22 @@ We rewrite @link{mlp32_10}{MLP(32,10)} as a ConvNet. The resulting digit classif
 }
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{LeNet-5 for MNIST classification}
 
 We implement LeNet-5 and test it on the MNIST data set. The layers in the network architecture are:
 @numlist{
-  @* Conv: kernel size @m{K=5}, stride @m{S=1}, depth @m{C=6}, resulting in 6 feature maps, @m{5^2 \times 6 + 6 = 156} trainable parameters.
+  @* Conv: kernel size @m{K=5}, stride @m{S=1}, passing @m{P=1}, depth @m{C=6}, resulting in 6 feature maps, @m{5^2 \times 6 + 6 = 156} trainable parameters.
+  @* Activation: sigmoid.
   @* Subsampling: @m{K=2}, @m{S=2}, @m{C=6}, average-pooling, times coefficient, add bias, pass through the sigmoid function. There are @m{(1+1) \times 6 = 12} trainable parameters, for the coefficient and bias in 6 layers.
   @* Conv: @m{K=5}, @m{S=1}, @m{C=16}. The first 6 filters take from 3 contiguous subsampled feature maps, the next 6 from 4, the next 3 from 4 discontiguous subsampled feature maps, and the last filter from all 6. There are @m{5^2 \times (3 \times 6 + 4 \times 6 + 4 \times 3 + 6) + 16 = 1516} trainable parameters.
+  @* Activation: sigmoid.
   @* Subsampling: @m{K=2}, @m{S=2}, @m{C=16}, @m{(1+1)\times 16 = 12} parameters.
   @* Conv/FC: @m{K=5}, @m{S=1}, @m{C=120}, @m{5^2 \times 16 \times 120 + 120 = 48120} trainable connections.
+  @* Activation: sigmoid.
   @* FC: 84 nodes, @m{120 \times 84 + 84 = 10164} parameters.
+  @* Activation: sigmoid
   @* Output layer: Euclidean Radial Basis Function units, one for each of the 10 classes, with 84 input each:
     @M{ y_i = \sum_j (x_j - w_{ij})^2 }
 }
@@ -442,9 +592,12 @@ We implement LeNet-5 and test it on the MNIST data set. The layers in the networ
 @section{PointNet}
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Notes to sort and add}
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsection{Architecture}
 
@@ -457,6 +610,8 @@ We implement LeNet-5 and test it on the MNIST data set. The layers in the networ
   @* Two joint alignment networks to align both input points and point features
 
 }
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Symmetry function for unordered input}
 
@@ -484,21 +639,33 @@ where
 where @m{N} is the number of input points. @m{h} is approximated by a MLP. @m{g} is the symmetric function, implemented as a single variable function plus a max pooling function. The result @m{f = [f_1, ..., f_K]} after max pooling is a global feature of the input set. For classification, we can train an SVM or a MLP classifier on @m{f}. However, point segmentation requires more network structures, addressed in the sections below.
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{Local and global information aggregation}
 
 Before the final MLP and max pooling to form the global feature, we have the transformed per-point features. Point segmentation requires knowledge of both local and global features. Therefore, the global feature is concatenated onto the local features.
 
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Joint alignment network}
 
 More than set order invariance, semantic labeling of a point cloud needs to be invariant under certain geometric transformations, e.g. rigid body transformations. Again, a solution is to align the input set to a canonical space before feature extraction. PointNet does it by training an affine transformation matrix @emph{T-net}. The same idea is applied to the alignment of feature space as well.
 
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Example implementations}
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{MNIST as a 2D point cloud, classification, no @emph{T-net}}
 
 Following Appendix F in the PointNet paper, we transform the MNIST image data to pixel sets by intensity thresholding for values larger than 128. Each pixel contain the @m{(x,y)} coordinates in the image. The set size is limited to 256. If there are more than 256 pixels after thresholding, randomly subsample to 256 points. If there are fewer than 256 pixels, then randomly repeat points from the set for padding.
+
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{MNIST, segmentation}
 
@@ -513,7 +680,11 @@ For point segmentation, we will attempt to segment which pixels are the numbers 
 
 @section{Appendix}
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Matrix derivatives}
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 @subsubsection{Matrix-vector multiplication}
 
@@ -553,6 +724,8 @@ For point segmentation, we will attempt to segment which pixels are the numbers 
   (n \times 1) &= (n \times n)(n \times 1) \nonumber
 }
 
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{Matrix-matrix multiplication}
 
 @M{
@@ -583,6 +756,9 @@ Using subscript-summation nnotation to derive the gradients @m{\frac{\partial f}
   \frac{\partial f}{\partial A} = \frac{\partial f}{\partial Y} X^T
 }
 
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsubsection{Elementwise matrix function}
 @M{
   Y_{n \times m} = \omega(X_{n \times m}) \\
@@ -599,7 +775,12 @@ Using subscript-summation nnotation to derive the gradients @m{\frac{\partial f}
   \frac{\partial f}{\partial X_{ij}} = \frac{\partial f}{\partial Y_{ij}} \omega'(X_{ij})
 }
 
+
+##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 @subsection{Convolution}
+
+@subsubsection{Basics}
 
 We start with 1D convolution. @m{f} and @m{g} are both 1D signals. @m{f} has length @m{n}, @m{g} has length @m{m}. The convolution of the two signals is defined as
 @M{
@@ -613,7 +794,25 @@ Convolution is associative, e.g. if we want to convolve @m{f} with kernels @m{g}
 }
 When the kernel sizes are much smaller than the input image size, convolving the kernels first reduces the amount of computation.
 
+@subsubsection{Implementation}
 
+The naive implementation follows the definition of convolution and scans the kernel across the input. Using a 2D image as an example, we run the following nested for-loops.
+
+@[
+for ci in range(self.channels):
+  for xi in range(self.image_width):
+    for yi in range(self.image_height):
+      sub_x = xp[:,
+                 xi*self.s:xi*self.s+self.k,
+                 yi*self.s:yi*self.s+self.k]
+      y[ci, xi, yi] = np.sum(sub_x * w[ci]) + b[ci]
+]@
+
+@b{im2col}
+
+Matrix multiplication is highlu optimized on many platforms. We can recast convolution into matrix multiplication.
+
+@b{FFT and inverse FFT}
 
 ##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 ##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##

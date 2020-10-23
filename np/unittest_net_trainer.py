@@ -25,13 +25,25 @@ class NetTrainerTest(unittest.TestCase):
     Test NetTrainer using simple MLP and SequentialNets
     """
 
-    def test_mlp_sgd(self):
+    def test_mlp_sgd_visual(self):
+        """Test training a set of defined MLP using sgd (stochastic gradient
+        descent). Plot visualizations to check training process and parameter
+        goodness."""
+        return
+        self._test_mlp_sgd(num_tests = 3, viz=True)
+
+
+    def _test_mlp_sgd(self, num_tests=None, test_activations=None, viz=False):
         """Test training random MLPs using sgd (stochastic gradient descent)"""
 
-        num_tests = 3
-        test_activations = ['relu', 'sigmoid', 'softmax']
+        if num_tests is None:
+            num_tests = 3
+
+        if test_activations is None:
+            test_activations = ['relu', 'sigmoid', 'softmax']
+
         num_samples = [32, 128]
-        epochs = 20
+        epochs = 10
 
         for activation in test_activations:
             for i in range(num_tests):
@@ -41,16 +53,16 @@ class NetTrainerTest(unittest.TestCase):
                 mlp, input_dimension, output_dimension = \
                     unittest_mlp.construct_mlp(activation)
                 ns = random.choice(num_samples)
-                batch_size = int(ns/2)
+                batch_size = int(ns/4)
                 x_train = generate_training_data_in((ns, input_dimension))
                 y_train = generate_training_data_out((ns, output_dimension))
 
                 trainer = NetTrainer()
-                mlp, loss_history = trainer.sgd(
-                    mlp, x_train, y_train, epochs, batch_size)
+                mlp, history = trainer.sgd(
+                    mlp, x_train, y_train, epochs, batch_size, eta=None, viz=viz)
 
                 print('loss history: {} -> {}'.format(
-                    loss_history[0], loss_history[-1]))
+                    history.loss_history[0], history.loss_history[-1]))
                 # assert(loss_history[-1] < loss_history[0]), \
                 #     '{}'.format(loss_history)
 
@@ -74,7 +86,7 @@ class NetTrainerTest(unittest.TestCase):
                     num_output, activation_fxn='relu', pooling_fxn='average')
 
                 ns = random.choice(num_samples)
-                batch_size = int(ns/2)
+                batch_size = int(ns/4)
                 input_dimension = (convnet.layers[1].nc,
                                    convnet.layers[1].nx,
                                    convnet.layers[1].ny)
@@ -84,11 +96,11 @@ class NetTrainerTest(unittest.TestCase):
                 y_train = generate_training_data_out((ns, output_dimension))
 
                 trainer = NetTrainer()
-                convnet, loss_history = trainer.sgd(
+                convnet, history = trainer.sgd(
                     convnet, x_train, y_train, epochs, batch_size)
 
                 print('loss history: {} -> {}'.format(
-                    loss_history[0], loss_history[-1]))
+                    history.loss_history[0], history.loss_history[-1]))
                 # assert(loss_history[-1] < loss_history[0]), \
                 #     '{}'.format(loss_history)
 

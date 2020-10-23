@@ -66,7 +66,39 @@ class ConvNetTest(unittest.TestCase):
     and backpropagation, do gradient check.
     """
 
+    def test_convnet_test(self):
+
+        cn = SequentialNet()
+        # Layer 1: ConvLayer
+        conv1_params = (4, 4, 1, 4, 6, 1, 0) # (nx, ny, nc, k, c, s, p)
+        cn.add_layer('ConvLayer', conv1_params)
+        # Layer 2: ActivationLayer
+        act1_params = (1, 1, 6, 'sigmoid') # (nx, ny, nc, activation_fxn)
+        cn.add_layer('ActivationLayer', act1_params)
+        # Layer 3: ConvLayer
+        conv2_params = (1, 1, 6, 1, 2, 1, 0) # (nx, ny, nc, k, c, s, p)
+        cn.add_layer('ConvLayer', conv2_params)
+        # Softmax + CCE loss function
+        cn.define_loss_function('sce')
+
+        num_output = 2
+        x0 = np.random.rand(
+            cn.get_layer(1).nc,
+            cn.get_layer(1).nx,
+            cn.get_layer(1).ny) * 10
+        xn = cn.forward_pass(x0)
+        y = np.zeros(num_output)
+        y[random.choice(range(num_output))] = 1
+
+        loss = cn.evaluate_loss(xn, y)
+        loss_grad = cn.calculate_loss_gradient(xn, y)
+
+        print(loss)
+
+
     def test_convnet_gradient_check(self):
+
+        return
 
         num_output = random.choice([2,3,4,5])
         num_tests = 3
