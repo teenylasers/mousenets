@@ -1,10 +1,7 @@
-import random
+import random, itertools
 import tensorflow as tf
 import matplotlib.pyplot as plt
-
-
-def convolution():
-    pass
+import constants
 
 
 def normalize_data(x):
@@ -64,3 +61,22 @@ def image_to_points(image, threshold=128, num_points=256, viz=False):
         plt.show()
 
     return s
+
+
+def compare_matrices(a, b, err=constants.kAllowNumericalErr):
+    """Compare 2 matrices, a and b, elementwise. Allow an error to account for
+    numerical accuracy. Return true if the elementwise difference between a
+    and b are all less than err."""
+
+    assert a.shape == b.shape, 'a.shape {} != b.shape {}'.format(
+        a.shape, b.shape)
+    size = tf.reduce_prod(a.shape)
+
+    # Reshape into 1D vector before comparison, to be agnostic of input ndims
+    a = tf.reshape(a, [size])
+    b = tf.reshape(b, [size])
+    for ii in range(size):
+        t = a[ii] - b[ii]
+        if abs(t) > err:
+            return False
+    return True

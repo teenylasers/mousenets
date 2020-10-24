@@ -5,8 +5,25 @@ from constants import *
 from utils import *
 
 
+class TestCompareMatrices(unittest.TestCase):
+    """Test compare_matrices() function."""
+
+    def test_compare_matrices_np(self):
+        a = np.array([[1.1, 2.2],[3.3, 4.4],[5.5, 6.6]])
+        b = a + np.array([[0,0],[1e-5,0],[0,1e-5]])
+        assert(compare_matrices(a, b, 1e-4))
+        assert(not compare_matrices(a, b, 1e-6))
+
+    def test_compare_matrices_tf(self):
+        a = tf.Variable([[1.1, 2.2],[3.3, 4.4],[5.5, 6.6]])
+        b = a + tf.Variable([[0,0],[1e-5,0],[0,1e-5]])
+        assert(compare_matrices(a, b, 1e-4))
+        assert(not compare_matrices(a, b, 1e-6))
+
+
 class TestNormalizeData(unittest.TestCase):
-    """ """
+    """Test normalize_data() function."""
+
     def test_normalize_data(self):
         """Test normalize_data function for both numpy array and tf.Variable."""
         num_tests = 3
@@ -116,18 +133,18 @@ class TestNormalizeData(unittest.TestCase):
             for ii in range(num_repeats): normalize_data(x_tf)
             print(timeit.default_timer() - start_time)
 
-
         print('Profile normalize_data(), matrix size = (16, 32, 64)')
         x_np = np.random.rand(16,32,64)
         x_tf = tf.Variable(x_np)
         num_repeats = 1000
         time_comparison(x_np, x_tf, num_repeats)
 
-        print('Profile normalize_data(), matrix size = (512, 512, 1024)')
-        x_np = np.random.rand(512,512,1024)
-        x_tf = tf.Variable(x_np)
-        num_repeats = 10
-        time_comparison(x_np, x_tf, num_repeats)
+        # WARNING: this takes forever to run on the laptop
+        # print('Profile normalize_data(), matrix size = (512, 512, 1024)')
+        # x_np = np.random.rand(512,512,1024)
+        # x_tf = tf.Variable(x_np)
+        # num_repeats = 10
+        # time_comparison(x_np, x_tf, num_repeats)
 
 
 
@@ -145,7 +162,7 @@ class TestImageToPoints(unittest.TestCase):
 
     def _test_image_to_points_np(self, images):
         """Test image_to_points with numpy.array input."""
-        num_tests = 2
+        num_tests = 1
         thresholds = [60, 250]
         num_points = [128, 512, 1024]
 
@@ -169,16 +186,9 @@ class TestImageToPoints(unittest.TestCase):
 
 
     def test_image_to_points(self):
-        return
         samples = self._load_mnist_samples()
         self._test_image_to_points_np(samples)
 
-
-
-# class TestConvolution(unittest.TestCase):
-#     """
-#     Test and time the convolution implementations.
-#     """
 
 
 if __name__ == '__main__':
