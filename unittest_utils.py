@@ -1,4 +1,4 @@
-import random, unittest, statistics
+import random, unittest, timeit, np_impl.utils
 import tensorflow as tf
 import numpy as np
 from constants import *
@@ -19,52 +19,115 @@ class TestNormalizeData(unittest.TestCase):
             x_np = np.random.rand(random.choice(x_dims), random.choice(y_dims))
             x_tf = tf.Variable(x_np)
 
-            x_np = normalize_data(x_np)
-            self.assertAlmostEqual(tf.math.reduce_mean(x_np).numpy(), 0, 6,
-                                   'mean = {}'.format(tf.math.reduce_mean(x_np)))
-            self.assertAlmostEqual(tf.math.reduce_std(x_np).numpy(), 1, 6,
-                                   'stdev = {}'.format(tf.math.reduce_std(x_np)))
+            x_np_normalized = normalize_data(x_np)
+            self.assertAlmostEqual(tf.math.reduce_mean(x_np_normalized).numpy(),
+                                   0, 6,
+                                   'mean = {}'.format(
+                                       tf.math.reduce_mean(x_np_normalized)))
+            self.assertAlmostEqual(tf.math.reduce_std(x_np_normalized).numpy(),
+                                   1, 6,
+                                   'stdev = {}'.format(
+                                       tf.math.reduce_std(x_np_normalized)))
 
-            x_tf = normalize_data(x_tf)
-            self.assertAlmostEqual(tf.math.reduce_mean(x_tf).numpy(), 0, 6,
-                                   'mean = {}'.format(tf.math.reduce_mean(x_tf)))
-            self.assertAlmostEqual(tf.math.reduce_std(x_tf).numpy(), 1, 6,
-                                   'stdev = {}'.format(tf.math.reduce_std(x_tf)))
+            x_tf_normalized = normalize_data(x_tf)
+            self.assertAlmostEqual(tf.math.reduce_mean(x_tf_normalized).numpy(),
+                                   0, 6,
+                                   'mean = {}'.format(
+                                       tf.math.reduce_mean(x_tf_normalized)))
+            self.assertAlmostEqual(tf.math.reduce_std(x_tf_normalized).numpy(),
+                                   1, 6,
+                                   'stdev = {}'.format(
+                                       tf.math.reduce_std(x_tf_normalized)))
 
         # Test 3D matrices
         for ii in range(num_tests):
             x_np = np.random.rand(random.choice(x_dims), random.choice(y_dims),
                                   random.choice(z_dims))
             x_tf = tf.Variable(x_np)
-            x_np = normalize_data(x_np)
 
-            self.assertAlmostEqual(tf.math.reduce_mean(x_np).numpy(), 0, 6,
-                                   'mean = {}'.format(tf.math.reduce_mean(x_np)))
-            self.assertAlmostEqual(tf.math.reduce_std(x_np).numpy(), 1, 6,
-                                   'stdev = {}'.format(tf.math.reduce_std(x_np)))
+            x_np_normalized = normalize_data(x_np)
+            self.assertAlmostEqual(tf.math.reduce_mean(x_np_normalized).numpy(),
+                                   0, 6,
+                                   'mean = {}'.format(
+                                       tf.math.reduce_mean(x_np_normalized)))
+            self.assertAlmostEqual(tf.math.reduce_std(x_np_normalized).numpy(),
+                                   1, 6,
+                                   'stdev = {}'.format(
+                                       tf.math.reduce_std(x_np_normalized)))
 
-            x_tf = normalize_data(x_tf)
-            self.assertAlmostEqual(tf.math.reduce_mean(x_tf).numpy(), 0, 6,
-                                   'mean = {}'.format(tf.math.reduce_mean(x_tf)))
-            self.assertAlmostEqual(tf.math.reduce_std(x_tf).numpy(), 1, 6,
-                                   'stdev = {}'.format(tf.math.reduce_std(x_tf)))
+            x_tf_normalized = normalize_data(x_tf)
+            self.assertAlmostEqual(tf.math.reduce_mean(x_tf_normalized).numpy(),
+                                   0, 6,
+                                   'mean = {}'.format(
+                                       tf.math.reduce_mean(x_tf_normalized)))
+            self.assertAlmostEqual(tf.math.reduce_std(x_tf_normalized).numpy(),
+                                   1, 6,
+                                   'stdev = {}'.format(
+                                       tf.math.reduce_std(x_tf_normalized)))
 
         # Test 1D vectors
         for ii in range(num_tests):
             x_np = np.random.rand(random.choice(x_dims))
             x_tf = tf.Variable(x_np)
 
-            x_np = normalize_data(x_np)
-            self.assertAlmostEqual(tf.math.reduce_mean(x_np).numpy(), 0, 6,
-                                   'mean = {}'.format(tf.math.reduce_mean(x_np)))
-            self.assertAlmostEqual(tf.math.reduce_std(x_np).numpy(), 1, 6,
-                                   'stdev = {}'.format(tf.math.reduce_std(x_np)))
+            x_np_normalized = normalize_data(x_np)
+            self.assertAlmostEqual(tf.math.reduce_mean(x_np_normalized).numpy(),
+                                   0, 6,
+                                   'mean = {}'.format(
+                                       tf.math.reduce_mean(x_np_normalized)))
+            self.assertAlmostEqual(tf.math.reduce_std(x_np_normalized).numpy(),
+                                   1, 6,
+                                   'stdev = {}'.format(
+                                       tf.math.reduce_std(x_np_normalized)))
 
-            x_tf = normalize_data(x_tf)
-            self.assertAlmostEqual(tf.math.reduce_mean(x_tf).numpy(), 0, 6,
-                                   'mean = {}'.format(tf.math.reduce_mean(x_tf)))
-            self.assertAlmostEqual(tf.math.reduce_std(x_tf).numpy(), 1, 6,
-                                   'stdev = {}'.format(tf.math.reduce_std(x_tf)))
+            x_tf_normalized = normalize_data(x_tf)
+            self.assertAlmostEqual(tf.math.reduce_mean(x_tf_normalized).numpy(),
+                                   0, 6,
+                                   'mean = {}'.format(
+                                       tf.math.reduce_mean(x_tf_normalized)))
+            self.assertAlmostEqual(tf.math.reduce_std(x_tf_normalized).numpy(),
+                                   1, 6,
+                                   'stdev = {}'.format(
+                                       tf.math.reduce_std(x_tf_normalized)))
+
+
+    def test_runtime_comparison(self):
+        """
+        Run timeit to profile
+        (1) np.utils pure numpy implementation,
+        (2) tf implementation on numpy array
+        (3) tf implementation on tf.Variable
+        """
+
+        def time_comparison(x_np, x_tf, num_repeats):
+
+            print('Pure numpy implementation: ')
+            start_time = timeit.default_timer()
+            for ii in range(num_repeats): np_impl.utils.normalize_data(x_np)
+            print(timeit.default_timer() - start_time)
+
+            print('Tensorflow implementation on numpy array: ')
+            start_time = timeit.default_timer()
+            for ii in range(num_repeats): normalize_data(x_np)
+            print(timeit.default_timer() - start_time)
+
+            print('Tensorflow implementation on tf.Variable: ')
+            start_time = timeit.default_timer()
+            for ii in range(num_repeats): normalize_data(x_tf)
+            print(timeit.default_timer() - start_time)
+
+
+        print('Profile normalize_data(), matrix size = (16, 32, 64)')
+        x_np = np.random.rand(16,32,64)
+        x_tf = tf.Variable(x_np)
+        num_repeats = 1000
+        time_comparison(x_np, x_tf, num_repeats)
+
+        print('Profile normalize_data(), matrix size = (512, 512, 1024)')
+        x_np = np.random.rand(512,512,1024)
+        x_tf = tf.Variable(x_np)
+        num_repeats = 10
+        time_comparison(x_np, x_tf, num_repeats)
 
 
 
@@ -106,7 +169,7 @@ class TestImageToPoints(unittest.TestCase):
 
 
     def test_image_to_points(self):
-
+        return
         samples = self._load_mnist_samples()
         self._test_image_to_points_np(samples)
 

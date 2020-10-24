@@ -7,7 +7,6 @@ def convolution():
     pass
 
 
-
 def normalize_data(x):
     """Normalize x, x can be a vector or a matrix."""
     data_size = tf.cast(tf.size(x), tf.float64)
